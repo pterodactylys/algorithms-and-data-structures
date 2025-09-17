@@ -51,6 +51,22 @@ def read_simple_list(filename: str) -> list[dict]:
         print(f"Файл {filename} не найден.")
         return []
     
+def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str) -> dict:
+    full_name = {}
+    if gender == 'male':
+        full_name['surname'] = (random.choice(surnames)['male'])
+        full_name['first_name'] = random.choice(names)
+        full_name['patronymic'] = (random.choice(patronymics)['male'])
+        return full_name
+    elif gender == 'female':
+        full_name['surname'] = (random.choice(surnames)['female'])
+        full_name['first_name'] = random.choice(names)
+        full_name['patronymic'] = (random.choice(patronymics)['female'])
+        return full_name
+    else: 
+        raise ValueError
+
+    
 
 
 def __main__():
@@ -62,10 +78,11 @@ def __main__():
     female_names = read_simple_list(female_names_file)
     surnames = read_surnames(surnames_file)
 
-    print(f'Выгружено {len(patronymics)} мужских имен с отчествами')
+    print(create_full_name(female_names, surnames, patronymics, 'female'))
 
 if __name__ == "__main__":
     __main__()
+
     
 
 
