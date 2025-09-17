@@ -85,6 +85,55 @@ def create_snils_number() -> str:
     
     return f"{part1} {part2}"
 
+def create_bank_card_number(payment_system:str, bank_name: str) -> str:
+    payment_systems = {
+        'VISA': '4', 
+        'MasterCard': '5',
+        'Mir': '2'
+    }
+    if payment_system in payment_systems:
+        prefix = payment_systems[payment_system]
+        length = 16
+    else:
+        raise ValueError("Unknown payment system")
+    banks = {
+        'Sberbank': '04',
+        'Tinkoff': '16',
+        'VTB': '41',
+        'Alfa-Bank': '35',
+        'Gazprombank': '22',
+        'Raiffeisenbank': '36',
+        'Otkritie': '45',
+        'Promsvyazbank': '20',
+        'Rosbank': '43',
+        'UniCredit Bank': '40'
+    }
+    if bank_name in banks:
+        prefix += banks[bank_name]
+    else:
+        raise ValueError("Unknown bank")
+    unique_part_length = length - len(prefix) - 1
+    unique_part = ''.join(random.choices('0123456789', k=unique_part_length))
+    partial_number = prefix + unique_part
+
+    def luhn_check_digit(number: str) -> str:
+        total = 0
+        reverse_digits = number[::-1]
+        for i, digit in enumerate(reverse_digits):
+            n = int(digit)
+            if i % 2 == 0:
+                n *= 2
+                if n > 9:
+                    n -= 9
+            total += n
+        check_digit = (10 - (total % 10)) % 10
+        return str(check_digit)
+    
+    partial_number += luhn_check_digit(partial_number)
+    formatted_number = ' '.join(partial_number[i:i + 4] for i in range(0, len(partial_number), 4))
+    return formatted_number
+        
+
 def __main__():
     names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
     female_names_file = 'lists/female_names.txt'
@@ -95,7 +144,7 @@ def __main__():
     # surnames = read_surnames(surnames_file)
 
     # print(create_full_name(female_names, surnames, patronymics, 'female'))
-    num = create_snils_number()
+    num = create_bank_card_number('VISA', 'Sberbank')
     print(num)
 
 if __name__ == "__main__":
