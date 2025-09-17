@@ -65,7 +65,11 @@ def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str
         return full_name
     else: 
         raise ValueError
-
+    
+def create_passport_number() -> str:
+    series = f"{random.randint(10, 99)} {random.randint(10, 99)}"
+    number = f"{random.randint(100000, 999999)}"
+    return f"{series} {number}"
     
 
 
@@ -74,11 +78,12 @@ def __main__():
     female_names_file = 'lists/female_names.txt'
     surnames_file = 'lists/surnames.txt'
 
-    patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
-    female_names = read_simple_list(female_names_file)
-    surnames = read_surnames(surnames_file)
+    # patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
+    # female_names = read_simple_list(female_names_file)
+    # surnames = read_surnames(surnames_file)
 
-    print(create_full_name(female_names, surnames, patronymics, 'female'))
+    # print(create_full_name(female_names, surnames, patronymics, 'female'))
+    print(create_passport_number())
 
 if __name__ == "__main__":
     __main__()
