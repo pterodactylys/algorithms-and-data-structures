@@ -70,8 +70,20 @@ def create_passport_number() -> str:
     series = f"{random.randint(10, 99)} {random.randint(10, 99)}"
     number = f"{random.randint(100000, 999999)}"
     return f"{series} {number}"
-    
 
+def create_snils_number() -> str:
+    part1 = f"{random.randint(100, 999)}-{random.randint(100, 999)}-{random.randint(100, 999)}"
+    part1_digits = part1.replace('-', '')
+    checksum = 0
+    for i in range(9):
+        checksum += int(part1_digits[i]) * (9 - i)
+    part2 = checksum % 101
+    if part2 == 100 or part2 == 101:
+        part2 = '00'
+    if len(str(part2)) == 1:
+        part2 = f"0{part2}"
+    
+    return f"{part1} {part2}"
 
 def __main__():
     names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
@@ -83,10 +95,12 @@ def __main__():
     # surnames = read_surnames(surnames_file)
 
     # print(create_full_name(female_names, surnames, patronymics, 'female'))
-    print(create_passport_number())
+    num = create_snils_number()
+    print(num)
 
 if __name__ == "__main__":
     __main__()
+
 
     
 
