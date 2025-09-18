@@ -2,6 +2,7 @@ from openpyxl import Workbook
 import pandas as pd
 import random
 
+
 def read_male_names_with_both_patronymics(filename: str) -> tuple[dict, list]:
     try:
         with open(filename, 'r', encoding='utf-8') as file:
@@ -132,6 +133,18 @@ def create_bank_card_number(payment_system:str, bank_name: str) -> str:
     partial_number += luhn_check_digit(partial_number)
     formatted_number = ' '.join(partial_number[i:i + 4] for i in range(0, len(partial_number), 4))
     return formatted_number
+
+
+def create_client(gender: str, names: list, surnames: dict, patronymics: dict, 
+                  bank_name: str, payment_system: str) -> dict:
+    client = {}
+    client.update(create_full_name(names, surnames, patronymics, gender))
+    client.update({
+        'passport_number': create_passport_number(),
+        'snils_number': create_snils_number(),
+        'bank_card_number': create_bank_card_number(payment_system, bank_name)
+    })
+    return client
         
 
 def __main__():
@@ -139,20 +152,29 @@ def __main__():
     female_names_file = 'lists/female_names.txt'
     surnames_file = 'lists/surnames.txt'
 
-    # patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
-    # female_names = read_simple_list(female_names_file)
-    # surnames = read_surnames(surnames_file)
+    patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
+    female_names = read_simple_list(female_names_file)
+    surnames = read_surnames(surnames_file)
 
-    # print(create_full_name(female_names, surnames, patronymics, 'female'))
-    num = create_bank_card_number('VISA', 'Sberbank')
-    print(num)
+    clients = []
+    for _ in range(10000):
+        gender = random.choice(['male', 'female'])
+        payment_system = random.choice(['VISA', 'MasterCard', 'Mir'])
+        bank = random.choice(['Sberbank', 'Tinkoff', 'VTB', 'Alfa-Bank', 'Gazprombank', 
+                              'Raiffeisenbank', 'Otkritie', 'Promsvyazbank', 'Rosbank', 'UniCredit Bank'])
+        if gender == 'male':
+            clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system))
+        else:
+            clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system))
+    print(clients)
+
 
 if __name__ == "__main__":
     __main__()
 
 
-    
 
+    
 
 
 
