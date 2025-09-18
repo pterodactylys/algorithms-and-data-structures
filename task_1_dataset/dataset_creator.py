@@ -140,24 +140,21 @@ def create_client(gender: str, names: list, surnames: dict, patronymics: dict,
     client = {}
     client.update(create_full_name(names, surnames, patronymics, gender))
     client.update({
+        'gender': gender,
         'passport_number': create_passport_number(),
         'snils_number': create_snils_number(),
         'bank_card_number': create_bank_card_number(payment_system, bank_name)
     })
     return client
-        
 
-def __main__():
-    names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
-    female_names_file = 'lists/female_names.txt'
-    surnames_file = 'lists/surnames.txt'
-
+def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
+                    female_names_file: str, surnames_file: str, output_file: str) -> None:
     patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
     female_names = read_simple_list(female_names_file)
     surnames = read_surnames(surnames_file)
 
     clients = []
-    for _ in range(10000):
+    for _ in range(number_of_clients):
         gender = random.choice(['male', 'female'])
         payment_system = random.choice(['VISA', 'MasterCard', 'Mir'])
         bank = random.choice(['Sberbank', 'Tinkoff', 'VTB', 'Alfa-Bank', 'Gazprombank', 
@@ -166,8 +163,20 @@ def __main__():
             clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system))
         else:
             clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system))
-    print(clients)
+    pd.DataFrame(clients).to_excel(output_file, index=False)
 
+        
+
+def __main__():
+
+    names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
+    female_names_file = 'lists/female_names.txt'
+    surnames_file = 'lists/surnames.txt'
+    print("Введите количество записей для генерации (например, 1000000):")
+    num_records = int(input())
+    print(f"Генерация датасета на {num_records} строк...")
+    create_dataset(num_records, names_w_patronymics_file, female_names_file, surnames_file, 'dataset.xlsx')
+    print("Dataset created and saved to dataset.xlsx")
 
 if __name__ == "__main__":
     __main__()
