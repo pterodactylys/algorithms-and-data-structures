@@ -641,19 +641,11 @@ def create_random_patient_profile():
     if doctors:
         primary_doctor = random.choice(doctors)
         tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
-    primary_tests = [random.choice(tests) for i in range(2)]
+    primary_tests = set([random.choice(tests) for i in range(2)])
 
     profile = {
         'symptoms': symptoms,
-        'recommended_doctors': doctors,
-        'primary_doctor_for_tests': primary_doctor,
+        'primary_doctor': primary_doctor,
         'recommended_tests': primary_tests
     }
     return profile
-
-if __name__ == "__main__":
-    profile = create_random_patient_profile()
-    print("Patient Profile:")
-    print("Symptoms:", profile['symptoms'])
-    print("Recommended Doctors:", profile['recommended_doctors'])
-    print("Recommended tests", profile['recommended_tests'])

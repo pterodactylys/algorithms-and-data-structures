@@ -1,7 +1,7 @@
 from openpyxl import Workbook
 import pandas as pd
 import random
-
+import medical_information as md
 
 def read_male_names_with_both_patronymics(filename: str) -> tuple[dict, list]:
     try:
@@ -138,7 +138,16 @@ def create_bank_card_number(payment_system:str, bank_name: str) -> str:
 def create_client(gender: str, names: list, surnames: dict, patronymics: dict, 
                   bank_name: str, payment_system: str) -> dict:
     client = {}
+    medical_information = md.create_random_patient_profile()
+    symptoms = medical_information['symptoms']
+    doctor = medical_information['primary_doctor']
+    tests = medical_information['recommended_tests']
     client.update(create_full_name(names, surnames, patronymics, gender))
+    client.update({
+        'symptoms' : ', '.join(symptoms),
+        'doctor' : doctor,
+        'tests' : ', '.join(tests)
+    })
     client.update({
         'gender': gender,
         'passport_number': create_passport_number(),
@@ -152,7 +161,6 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
     patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
     female_names = read_simple_list(female_names_file)
     surnames = read_surnames(surnames_file)
-
     clients = []
     for _ in range(number_of_clients):
         gender = random.choice(['male', 'female'])
