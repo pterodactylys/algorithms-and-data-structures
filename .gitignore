@@ -1,6 +1,7 @@
 build_*/
 lib/
 libs/
+__pycache__/
 
 *.exe
 *.ii
