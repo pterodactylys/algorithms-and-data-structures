@@ -170,7 +170,25 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
             clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system))
         else:
             clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system))
-    pd.DataFrame(clients).to_excel(output_file, index=False)
+
+    df = pd.DataFrame(clients)
+    #adjust columns width
+    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+        worksheet = writer.sheets['Sheet1']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            
+            adjusted_width = (max_length + 2) * 1.2
+            worksheet.column_dimensions[column_letter].width = adjusted_width
 
 
 
