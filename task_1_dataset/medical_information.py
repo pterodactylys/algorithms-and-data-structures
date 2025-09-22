@@ -367,8 +367,6 @@ doctor_specializations = {
     'Иммунолог': ['иммунная система', 'иммунодефициты'],
     'Терапевт': ['общие заболевания', 'первичный прием'],
     'Хирург': ['хирургические патологии', 'операции'],
-        
-    # Новые врачи для полного покрытия
     'Педиатр': ['детские заболевания', 'растущий организм'],
     'Психиатр': ['психические расстройства', 'психическая сфера'],
     'Психотерапевт': ['психологические проблемы', 'эмоциональная сфера'],
@@ -557,6 +555,7 @@ tests_by_organ_system =  {
         }
 }
 
+import random
 
 def get_all_organs():
     organs = set()
@@ -584,57 +583,77 @@ def get_doctors_by_organ(organ: str):
             doctors.add(doctor)
     return list(doctors)
 
-def get_doctors_by_symptoms(symptoms: list):
-    organs = set()
+def get_doctors_by_most_symptoms(symptoms: list):
+    doctor_count = {}
     for symptom in symptoms:
-        organs.update(get_organs_by_symptom(symptom))
-    doctors = set()
-    for organ in organs:
-        doctors.update(get_doctors_by_organ(organ))
-    return list(doctors)
+        organs = get_organs_by_symptom(symptom)
+        for organ in organs:
+            doctors = get_doctors_by_organ(organ)
+            for doctor in doctors:
+                if doctor not in doctor_count:
+                    doctor_count[doctor] = 0
+                doctor_count[doctor] += 1
+    max_count = max(doctor_count.values(), default=0)
+    best_doctors = [doc for doc, count in doctor_count.items() if count == max_count]
+    return best_doctors
 
-def get_tests_by_organ_system(system: str):
-    return tests_by_organ_system.get(system, {'common': [], 'specific': {}})
+def get_tests_by_symptoms_and_doctor(symptoms: list[str], doctor: str):
+    possible_tests = set()
+    symptom_systems = set()
+    doctor_systems = set()
 
-def get_tests_by_symptoms(symptoms: list):
-    organs = set()
     for symptom in symptoms:
-        organs.update(get_organs_by_symptom(symptom))
-    systems = set()
-    for organ in organs:
-        for system, details in organ_systems.items():
-            if organ in details['organs']:
-                systems.add(system)
-    tests = {'common': set(), 'specific': {}}
-    for system in systems:
-        system_tests = get_tests_by_organ_system(system)
-        tests['common'].update(system_tests['common'])
-        for doctor, specific_tests in system_tests['specific'].items():
-            if doctor not in tests['specific']:
-                tests['specific'][doctor] = set()
-            tests['specific'][doctor].update(specific_tests)
-    tests['common'] = list(tests['common'])
-    for doctor in tests['specific']:
-        tests['specific'][doctor] = list(tests['specific'][doctor])
-    return tests
+        for system_name, system_details in organ_systems.items():
+            if symptom in system_details['symptoms']:
+                symptom_systems.add(system_name)
+
+    if doctor in doctor_specializations:
+        specialties = doctor_specializations[doctor]
+        for specialty in specialties:
+            if specialty in organ_systems:
+                doctor_systems.add(specialty)
+            else:
+                for system_name, system_details in organ_systems.items():
+                    if specialty in system_details['organs']:
+                        doctor_systems.add(system_name)
+
+    relevant_systems = symptom_systems.intersection(doctor_systems)
+
+    if not relevant_systems:
+        relevant_systems = doctor_systems
+
+    for system_name in relevant_systems:
+        if system_name in tests_by_organ_system:
+            possible_tests.update(tests_by_organ_system[system_name].get('common', []))
+            if doctor in tests_by_organ_system[system_name].get('specific', {}):
+                possible_tests.update(tests_by_organ_system[system_name]['specific'][doctor])
+
+    return list(possible_tests)
 
 def create_random_patient_profile():
-    import random
-    symptoms = random.sample(get_all_symptoms(), k=3)
-    organs = set()
-    for symptom in symptoms:
-        organs.update(get_organs_by_symptom(symptom))
-    doctors = set()
-    for organ in organs:
-        doctors.update(get_doctors_by_organ(organ))
-    tests = get_tests_by_symptoms(symptoms)
+    group = random.choice(list(organ_systems.keys()))
+    symptoms = list(set([random.choice(organ_systems[group]['symptoms']) for _ in range(3)]))
+    doctors = get_doctors_by_most_symptoms(symptoms)
+    
+    primary_doctor = None
+    tests = []
+
+    if doctors:
+        primary_doctor = random.choice(doctors)
+        tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
+    primary_tests = [random.choice(tests) for i in range(2)]
+
     profile = {
         'symptoms': symptoms,
-        # 'organs': list(organs),
-        # 'doctors': random.choice(list(doctors)),
-        'tests': tests
+        'recommended_doctors': doctors,
+        'primary_doctor_for_tests': primary_doctor,
+        'recommended_tests': primary_tests
     }
     return profile
 
 if __name__ == "__main__":
-    print(create_random_patient_profile())
+    profile = create_random_patient_profile()
+    print("Patient Profile:")
+    print("Symptoms:", profile['symptoms'])
+    print("Recommended Doctors:", profile['recommended_doctors'])
+    print("Recommended tests", profile['recommended_tests'])
