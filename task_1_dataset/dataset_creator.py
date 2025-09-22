@@ -55,14 +55,14 @@ def read_simple_list(filename: str) -> list[dict]:
 def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str) -> dict:
     full_name = {}
     if gender == 'male':
-        full_name['surname'] = (random.choice(surnames)['male'])
-        full_name['first_name'] = random.choice(names)
-        full_name['patronymic'] = (random.choice(patronymics)['male'])
+        full_name['Фамилия'] = (random.choice(surnames)['male'])
+        full_name['Имя'] = random.choice(names)
+        full_name['Отчество'] = (random.choice(patronymics)['male'])
         return full_name
     elif gender == 'female':
-        full_name['surname'] = (random.choice(surnames)['female'])
-        full_name['first_name'] = random.choice(names)
-        full_name['patronymic'] = (random.choice(patronymics)['female'])
+        full_name['Фамилия'] = (random.choice(surnames)['female'])
+        full_name['Имя'] = random.choice(names)
+        full_name['Отчество'] = (random.choice(patronymics)['female'])
         return full_name
     else: 
         raise ValueError
@@ -144,15 +144,15 @@ def create_client(gender: str, names: list, surnames: dict, patronymics: dict,
     tests = medical_information['recommended_tests']
     client.update(create_full_name(names, surnames, patronymics, gender))
     client.update({
-        'symptoms' : ', '.join(symptoms),
-        'doctor' : doctor,
-        'tests' : ', '.join(tests)
+        'Симптомы' : ', '.join(symptoms),
+        'Врач' : doctor,
+        'Анализы' : ', '.join(tests)
     })
     client.update({
-        'gender': gender,
-        'passport_number': create_passport_number(),
-        'snils_number': create_snils_number(),
-        'bank_card_number': create_bank_card_number(payment_system, bank_name)
+        'Пол': 'Мужской' if gender == 'male' else 'Женский',
+        'Серия и номер паспорта': create_passport_number(),
+        'Номер СНИЛС': create_snils_number(),
+        'Номер банковской карты': create_bank_card_number(payment_system, bank_name)
     })
     return client
 
