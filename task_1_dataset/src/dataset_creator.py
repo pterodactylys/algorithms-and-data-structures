@@ -1,8 +1,6 @@
-from openpyxl import Workbook
 import pandas as pd
 import random
-import time
-import medical_information as md
+from src import medical_information as md
 
 def read_male_names_with_both_patronymics(filename: str) -> tuple[dict, list]:
     try:
@@ -174,24 +172,6 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
             clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system))
     pd.DataFrame(clients).to_excel(output_file, index=False)
 
-        
-
-def __main__():
-
-    names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
-    female_names_file = 'lists/female_names.txt'
-    surnames_file = 'lists/surnames.txt'
-    print("Введите количество записей для генерации (например, 1000000):")
-    num_records = int(input())
-    start = time.time()
-    print(f"Генерация датасета на {num_records} строк...")
-    create_dataset(num_records, names_w_patronymics_file, female_names_file, surnames_file, 'dataset.xlsx')
-    end = time.time()
-    length = round(end - start, 3)
-    print(f"Датасет сгенерирован и сохранён в dataset.xlsx, Это заняло {length} секунд")
-
-if __name__ == "__main__":
-    __main__()
 
 
 
