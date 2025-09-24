@@ -138,15 +138,16 @@ def create_client(gender: str, names: list, surnames: dict, patronymics: dict,
                   bank_name: str, payment_system: str) -> dict:
     client = {}
     client.update(create_full_name(names, surnames, patronymics, gender))
-
+    client.update({
+        'Паспортные данные': create_passport_number(),
+        'СНИЛС': create_snils_number(),
+    })
     medical_information = md.create_random_patient_profile()
     client.update(medical_information)
     client.update({
-        'Пол': 'Мужской' if gender == 'male' else 'Женский',
-        'Серия и номер паспорта': create_passport_number(),
-        'Номер СНИЛС': create_snils_number(),
-        'Номер банковской карты': create_bank_card_number(payment_system, bank_name)
+        'Карта оплаты': create_bank_card_number(payment_system, bank_name)
     })
+
     return client
 
 def create_dataset(number_of_clients: int, names_w_patronymics_file: str,

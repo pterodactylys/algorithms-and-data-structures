@@ -664,10 +664,7 @@ def generate_visit_date(base_year=2020):
         'Стоимость анализов': cost
     }
 
-
-
 def create_random_patient_profile():
-    # Выбираем 2 случайные группы органов
     system_names = list(organ_systems.keys())
     selected_systems = random.sample(system_names, 2)
     
@@ -714,7 +711,10 @@ def create_random_patient_profile():
     profile = {
         'Симптомы': ', '.join(symptoms),
         'Врач': primary_doctor,
-        'Анализы': ', '.join(primary_tests)
+        'Дата посещения врача': date['Дата визита'],
+        'Анализы': ', '.join(primary_tests),
+        'Дата готовности анализов': date['Дата готовности анализов'],
+        'Стоимость анализов': date['Стоимость анализов']    
     }
-    profile.update(date)
+    # profile.update(date)
     return profile
