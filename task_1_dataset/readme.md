@@ -31,13 +31,7 @@
   
 
 ```
-
-  
-
 git clone https://github.com/pterodactylys/algorithms-and-data-structures/tree/main/task_1_dataset
-
-  
-
 ```
 
   
@@ -51,9 +45,7 @@ git clone https://github.com/pterodactylys/algorithms-and-data-structures/tree/m
   
 
 ```
-
-pip install -r requirments.txt
- 
+pip install -r requirments.txt 
 ```
 
   
@@ -63,9 +55,7 @@ pip install -r requirments.txt
   
 
 ```
-
 python main.py  
-
 ```
 
   
@@ -103,9 +93,7 @@ python main.py
   
 
 ``
-
 Александр: Александрович, Александровна
-
 ``
 
   
@@ -125,9 +113,7 @@ python main.py
   
 
 ``
-
 София
-
 ``
 
   
@@ -147,9 +133,7 @@ python main.py
   
 
 ``
-
 Иванов, Иванова
-
 ``
 
   
