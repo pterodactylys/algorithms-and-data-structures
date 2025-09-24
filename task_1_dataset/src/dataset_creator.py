@@ -1,6 +1,8 @@
 import pandas as pd
 import random
+import json
 from src import medical_information as md
+
 
 def read_male_names_with_both_patronymics(filename: str) -> tuple[dict, list]:
     try:
@@ -51,6 +53,33 @@ def read_simple_list(filename: str) -> list[dict]:
         print(f"Файл {filename} не найден.")
         return []
     
+def load_config_from_json(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config
+    except FileNotFoundError:
+        print(f"Конфиг файл {file_path} не найден. Использую настройки по умолчанию.")
+        return get_default_config()
+    except json.JSONDecodeError:
+        print(f"Ошибка в формате JSON файла {file_path}. Использую настройки по умолчанию.")
+        return get_default_config()
+
+def get_default_config():
+    return {
+        "citizenship_probabilities": {"RU": 0.70, "BY": 0.20, "KZ": 0.10},
+        "banks_weights": {'Sberbank': 0.3, 'Tinkoff': 0.2, 'VTB': 0.15, 'Alfa-Bank': 0.1,
+                          'Gazprombank': 0.05, 'Raiffeisenbank': 0.05, 'Otkritie': 0.05,
+                          'Promsvyazbank': 0.04, 'Rosbank': 0.03, 'UniCredit Bank': 0.03},
+        "payment_system_probabilities": {'VISA': 0.5, 'MasterCard': 0.3, 'Mir': 0.2},
+        "gender_probabilities" : {'male': 0.5, 'female': 0.5}
+    }
+
+citizenship_probabilities = load_config_from_json('src/config.json')['citizenship_probabilities']
+bank_probabilities = load_config_from_json('src/config.json')['banks_weights']
+payment_system_probabilities = load_config_from_json('src/config.json')['payment_system_probabilities']
+gender_probabilities = load_config_from_json('src/config.json')['gender_probabilities']
+    
 def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str) -> dict:
     full_name = {}
     if gender == 'male':
@@ -66,19 +95,57 @@ def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str
     else: 
         raise ValueError
 
-def generate_citizenship_simple(ru_prob: float, by_prob: float, kz_prob: float) -> str:
-    total = ru_prob + by_prob + kz_prob
-    if abs(total - 1.0) > 0.001:
-        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total}")
+def generate_citizenship_simple(country_probabilities: dict[str]) -> str:
+    total_prob = sum(country_probabilities.values())
+    if abs(total_prob - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
     
-    rand = random.random()
+    rand_num = random.random()
+    cumulative_prob = 0.0
+
+    for country, prob in country_probabilities.items():
+        cumulative_prob += prob
+        if rand_num < cumulative_prob:
+            return country
+        
+def generate_bank(bank_probabilities: dict[str]) -> str:
+    total_prob = sum(bank_probabilities.values())
+    if abs(total_prob - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
     
-    if rand < ru_prob:
-        return 'RU'
-    elif rand < ru_prob + by_prob:
-        return 'BY'
-    else:
-        return 'KZ'
+    rand_num = random.random()
+    cumulative_prob = 0.0
+
+    for bank, prob in bank_probabilities.items():
+        cumulative_prob += prob
+        if rand_num < cumulative_prob:
+            return bank
+        
+def generate_payment_system(payment_probabilities: dict[str]) -> str:
+    total_prob = sum(payment_probabilities.values())
+    if abs(total_prob - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
+    
+    rand_num = random.random()
+    cumulative_prob = 0.0
+
+    for system, prob in payment_probabilities.items():
+        cumulative_prob += prob
+        if rand_num < cumulative_prob:
+            return system
+        
+def generate_gender(gender_probabilities: dict[str]) -> str:
+    total_prob = sum(gender_probabilities.values())
+    if abs(total_prob - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
+    
+    rand_num = random.random()
+    cumulative_prob = 0.0
+
+    for gender, prob in gender_probabilities.items():
+        cumulative_prob += prob
+        if rand_num < cumulative_prob:
+            return gender
     
 def create_passport_number(country) -> str:
     if country == 'RU':
@@ -185,11 +252,10 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
     surnames = read_surnames(surnames_file)
     clients = []
     for _ in range(number_of_clients):
-        gender = random.choice(['male', 'female'])
-        payment_system = random.choice(['VISA', 'MasterCard', 'Mir'])
-        bank = random.choice(['Sberbank', 'Tinkoff', 'VTB', 'Alfa-Bank', 'Gazprombank', 
-                              'Raiffeisenbank', 'Otkritie', 'Promsvyazbank', 'Rosbank', 'UniCredit Bank'])
-        country = generate_citizenship_simple(0.7, 0.2, 0.1)
+        gender = generate_gender(gender_probabilities)
+        payment_system = generate_payment_system(payment_system_probabilities)
+        bank = generate_bank(bank_probabilities)
+        country = generate_citizenship_simple(citizenship_probabilities)
         if gender == 'male':
             clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system, country))
         else:
@@ -213,6 +279,7 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
             
             adjusted_width = (max_length + 2) * 1.1
             worksheet.column_dimensions[column_letter].width = adjusted_width
+
 
 
 

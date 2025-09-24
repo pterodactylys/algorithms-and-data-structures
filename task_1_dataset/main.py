@@ -6,7 +6,8 @@ def __main__():
     names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
     female_names_file = 'lists/female_names.txt'
     surnames_file = 'lists/surnames.txt'
-    print("Введите количество записей для генерации (например, 1000000):")
+    print('Добро пожаловать в Генератор синтетического датасета "Платная поликлиника".\nВы можете изменять параметры генерации путём изменения файла src/config.json.')
+    print("Введите количество записей для генерации (например, 100000):")
     num_records = int(input())
     start = time.time()
     print(f"Генерация датасета на {num_records} строк...")
