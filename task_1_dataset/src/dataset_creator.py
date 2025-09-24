@@ -190,9 +190,6 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
             adjusted_width = (max_length + 2) * 1.2
             worksheet.column_dimensions[column_letter].width = adjusted_width
 
-
-
-
     
 
 

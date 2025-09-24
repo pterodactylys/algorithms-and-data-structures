@@ -630,23 +630,67 @@ def get_tests_by_symptoms_and_doctor(symptoms: list[str], doctor: str):
 
     return list(possible_tests)
 
+
 def create_random_patient_profile():
-    group = random.choice(list(organ_systems.keys()))
-    symptoms = list(set([random.choice(organ_systems[group]['symptoms']) for _ in range(3)]))
+    # Выбираем 2 случайные группы органов
+    system_names = list(organ_systems.keys())
+    selected_systems = random.sample(system_names, 2)
+    
+    symptoms = []
+    
+    # Собираем все симптомы из выбранных систем
+    all_symptoms_from_selected = []
+    for system in selected_systems:
+        all_symptoms_from_selected.extend(organ_systems[system]['symptoms'])
+    
+    # Убеждаемся, что есть достаточно уникальных симптомов
+    if len(all_symptoms_from_selected) >= 3:
+        # Выбираем 3 случайных симптома из объединенного списка
+        symptoms = random.sample(all_symptoms_from_selected, 3)
+    else:
+        # Если симптомов недостаточно, добавляем из других систем
+        symptoms = all_symptoms_from_selected[:]
+        remaining_systems = [sys for sys in system_names if sys not in selected_systems]
+        additional_symptoms = []
+        for system in remaining_systems:
+            additional_symptoms.extend(organ_systems[system]['symptoms'])
+        
+        # Добавляем недостающие симптомы из других систем
+        needed_count = 3 - len(symptoms)
+        if needed_count > 0 and additional_symptoms:
+            additional_selected = random.sample(additional_symptoms, min(needed_count, len(additional_symptoms)))
+            symptoms.extend(additional_selected)
+    
+    # Убеждаемся, что у нас ровно 3 симптома
+    symptoms = symptoms[:3]
+    
+    # Определяем подходящих врачей
     doctors = get_doctors_by_most_symptoms(symptoms)
     
     primary_doctor = None
-    tests = []
+    primary_tests = []
 
     if doctors:
         primary_doctor = random.choice(doctors)
-        tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
-        primary_tests = [random.choice(tests) for i in range(2)]
+        all_tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
+        # Выбираем 1-3 теста (случайное количество), но проверяем, что тесты есть
+        if all_tests:
+            num_tests = random.randint(1, min(3, len(all_tests)))
+            primary_tests = random.sample(all_tests, num_tests)
+        else:
+            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]  # базовые тесты по умолчанию
     else:
         primary_doctor = 'Терапевт'
-        primary_tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
+        all_tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
+        # Выбираем 1-3 теста (случайное количество), но проверяем, что тесты есть
+        if all_tests:
+            num_tests = random.randint(1, min(3, len(all_tests)))
+            primary_tests = random.sample(all_tests, num_tests)
+        else:
+            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]  # базовые тесты по умолчанию
 
     profile = {
+        'systems': selected_systems,
         'symptoms': symptoms,
         'primary_doctor': primary_doctor,
         'recommended_tests': primary_tests
