@@ -137,16 +137,10 @@ def create_bank_card_number(payment_system:str, bank_name: str) -> str:
 def create_client(gender: str, names: list, surnames: dict, patronymics: dict, 
                   bank_name: str, payment_system: str) -> dict:
     client = {}
-    medical_information = md.create_random_patient_profile()
-    symptoms = medical_information['symptoms']
-    doctor = medical_information['primary_doctor']
-    tests = medical_information['recommended_tests']
     client.update(create_full_name(names, surnames, patronymics, gender))
-    client.update({
-        'Симптомы' : ', '.join(symptoms),
-        'Врач' : doctor,
-        'Анализы' : ', '.join(tests)
-    })
+
+    medical_information = md.create_random_patient_profile()
+    client.update(medical_information)
     client.update({
         'Пол': 'Мужской' if gender == 'male' else 'Женский',
         'Серия и номер паспорта': create_passport_number(),
@@ -187,10 +181,9 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
                 except:
                     pass
             
-            adjusted_width = (max_length + 2) * 1.2
+            adjusted_width = (max_length + 2) * 1.1
             worksheet.column_dimensions[column_letter].width = adjusted_width
 
-    
 
 
 

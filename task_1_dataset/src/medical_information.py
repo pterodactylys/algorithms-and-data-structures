@@ -555,6 +555,7 @@ tests_by_organ_system =  {
         }
 }
 
+from datetime import datetime, timedelta
 import random
 
 def get_all_organs():
@@ -630,6 +631,40 @@ def get_tests_by_symptoms_and_doctor(symptoms: list[str], doctor: str):
 
     return list(possible_tests)
 
+def generate_visit_date(base_year=2020):
+    start_date = datetime(base_year, 1, 1)
+    end_date = datetime(base_year, 12, 31)
+    
+    days_between = (end_date - start_date).days
+    random_days = random.randint(0, days_between)
+    visit_date = start_date + timedelta(days=random_days)
+    
+    hour = random.randint(8, 17)
+    minute = random.choice([0, 30])
+    visit_date = visit_date.replace(hour=hour, minute=minute)
+    
+    days_to_results = random.randint(1, 3)
+    results_date = visit_date + timedelta(days=days_to_results)
+    
+    results_hour = random.randint(9, 15)
+    results_minute = random.choice([0, 30])
+    results_date = results_date.replace(hour=results_hour, minute=results_minute)
+    
+    min_cost = 500
+    max_cost = 5000
+    step = 100
+    cost = random.randrange(min_cost, max_cost + step, step)
+    
+    visit_date_str = visit_date.strftime('%Y-%m-%dT%H:%M+03:00')
+    results_date_str = results_date.strftime('%Y-%m-%dT%H:%M+03:00')
+    
+    return {
+        'Дата визита': visit_date_str,
+        'Дата готовности анализов': results_date_str,
+        'Стоимость анализов': cost
+    }
+
+
 
 def create_random_patient_profile():
     # Выбираем 2 случайные группы органов
@@ -637,34 +672,23 @@ def create_random_patient_profile():
     selected_systems = random.sample(system_names, 2)
     
     symptoms = []
-    
-    # Собираем все симптомы из выбранных систем
     all_symptoms_from_selected = []
     for system in selected_systems:
         all_symptoms_from_selected.extend(organ_systems[system]['symptoms'])
-    
-    # Убеждаемся, что есть достаточно уникальных симптомов
     if len(all_symptoms_from_selected) >= 3:
-        # Выбираем 3 случайных симптома из объединенного списка
         symptoms = random.sample(all_symptoms_from_selected, 3)
     else:
-        # Если симптомов недостаточно, добавляем из других систем
         symptoms = all_symptoms_from_selected[:]
         remaining_systems = [sys for sys in system_names if sys not in selected_systems]
         additional_symptoms = []
         for system in remaining_systems:
             additional_symptoms.extend(organ_systems[system]['symptoms'])
         
-        # Добавляем недостающие симптомы из других систем
         needed_count = 3 - len(symptoms)
         if needed_count > 0 and additional_symptoms:
             additional_selected = random.sample(additional_symptoms, min(needed_count, len(additional_symptoms)))
             symptoms.extend(additional_selected)
-    
-    # Убеждаемся, что у нас ровно 3 симптома
     symptoms = symptoms[:3]
-    
-    # Определяем подходящих врачей
     doctors = get_doctors_by_most_symptoms(symptoms)
     
     primary_doctor = None
@@ -673,26 +697,24 @@ def create_random_patient_profile():
     if doctors:
         primary_doctor = random.choice(doctors)
         all_tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
-        # Выбираем 1-3 теста (случайное количество), но проверяем, что тесты есть
         if all_tests:
             num_tests = random.randint(1, min(3, len(all_tests)))
             primary_tests = random.sample(all_tests, num_tests)
         else:
-            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]  # базовые тесты по умолчанию
+            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]
     else:
         primary_doctor = 'Терапевт'
         all_tests = get_tests_by_symptoms_and_doctor(symptoms, primary_doctor)
-        # Выбираем 1-3 теста (случайное количество), но проверяем, что тесты есть
         if all_tests:
             num_tests = random.randint(1, min(3, len(all_tests)))
             primary_tests = random.sample(all_tests, num_tests)
         else:
-            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]  # базовые тесты по умолчанию
-
+            primary_tests = ["Общий анализ крови", "Общий анализ мочи"]
+    date = generate_visit_date()
     profile = {
-        'systems': selected_systems,
-        'symptoms': symptoms,
-        'primary_doctor': primary_doctor,
-        'recommended_tests': primary_tests
+        'Симптомы': ', '.join(symptoms),
+        'Врач': primary_doctor,
+        'Анализы': ', '.join(primary_tests)
     }
+    profile.update(date)
     return profile
