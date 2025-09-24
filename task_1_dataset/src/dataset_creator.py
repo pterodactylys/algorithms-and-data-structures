@@ -65,25 +65,53 @@ def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str
         return full_name
     else: 
         raise ValueError
-    
-def create_passport_number() -> str:
-    series = f"{random.randint(10, 99)} {random.randint(10, 99)}"
-    number = f"{random.randint(100000, 999999)}"
-    return f"{series} {number}"
 
-def create_snils_number() -> str:
-    part1 = f"{random.randint(100, 999)}-{random.randint(100, 999)}-{random.randint(100, 999)}"
-    part1_digits = part1.replace('-', '')
-    checksum = 0
-    for i in range(9):
-        checksum += int(part1_digits[i]) * (9 - i)
-    part2 = checksum % 101
-    if part2 == 100 or part2 == 101:
-        part2 = '00'
-    if len(str(part2)) == 1:
-        part2 = f"0{part2}"
+def generate_citizenship_simple(ru_prob: float, by_prob: float, kz_prob: float) -> str:
+    total = ru_prob + by_prob + kz_prob
+    if abs(total - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total}")
     
-    return f"{part1} {part2}"
+    rand = random.random()
+    
+    if rand < ru_prob:
+        return 'RU'
+    elif rand < ru_prob + by_prob:
+        return 'BY'
+    else:
+        return 'KZ'
+    
+def create_passport_number(country) -> str:
+    if country == 'RU':
+        series = f"{random.randint(10, 99)} {random.randint(10, 99)}"
+        number = f"{random.randint(100000, 999999)}"
+        return f"{series} {number}"
+    elif country == 'BY':
+        series = f"{random.randint(10, 99)}"
+        number = f"{random.randint(1000000, 9999999)}"
+        return f"{series} {number}"
+    elif country == 'KZ':
+        series = f"{random.randint(10, 99)}"
+        number = f"{random.randint(100000, 999999)}"
+        return f"{series} {number}"
+
+def create_snils_number(country: str) -> str:
+    if country == 'RU':
+        part1 = f"{random.randint(100, 999)}-{random.randint(100, 999)}-{random.randint(100, 999)}"
+        part1_digits = part1.replace('-', '')
+        checksum = 0
+        for i in range(9):
+            checksum += int(part1_digits[i]) * (9 - i)
+        part2 = checksum % 101
+        if part2 == 100 or part2 == 101:
+            part2 = '00'
+        if len(str(part2)) == 1:
+            part2 = f"0{part2}"
+        return f"{part1} {part2}"
+    
+    elif country == 'BY':
+        return "Гражданин РБ"
+    elif country == "KZ":
+        return "Гражданин РК"
 
 def create_bank_card_number(payment_system:str, bank_name: str) -> str:
     payment_systems = {
@@ -135,12 +163,12 @@ def create_bank_card_number(payment_system:str, bank_name: str) -> str:
 
 
 def create_client(gender: str, names: list, surnames: dict, patronymics: dict, 
-                  bank_name: str, payment_system: str) -> dict:
+                  bank_name: str, payment_system: str, country: str) -> dict:
     client = {}
     client.update(create_full_name(names, surnames, patronymics, gender))
     client.update({
-        'Паспортные данные': create_passport_number(),
-        'СНИЛС': create_snils_number(),
+        'Паспортные данные': create_passport_number(country),
+        'СНИЛС': create_snils_number(country),
     })
     medical_information = md.create_random_patient_profile()
     client.update(medical_information)
@@ -161,10 +189,11 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
         payment_system = random.choice(['VISA', 'MasterCard', 'Mir'])
         bank = random.choice(['Sberbank', 'Tinkoff', 'VTB', 'Alfa-Bank', 'Gazprombank', 
                               'Raiffeisenbank', 'Otkritie', 'Promsvyazbank', 'Rosbank', 'UniCredit Bank'])
+        country = generate_citizenship_simple(0.7, 0.2, 0.1)
         if gender == 'male':
-            clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system))
+            clients.append(create_client(gender, male_names, surnames, patronymics, bank, payment_system, country))
         else:
-            clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system))
+            clients.append(create_client(gender, female_names, surnames, patronymics, bank, payment_system, country))
 
     df = pd.DataFrame(clients)
     #adjust columns width
@@ -184,6 +213,7 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
             
             adjusted_width = (max_length + 2) * 1.1
             worksheet.column_dimensions[column_letter].width = adjusted_width
+
 
 
 
