@@ -383,7 +383,13 @@ def create_client(gender: str, names: list, surnames: dict, patronymics: dict,
 
 def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
                     female_names_file: str, surnames_file: str, output_file: str,
-                    edit_config: bool = False) -> None:
+                    edit_config: bool = False, show_only: bool = False) -> None:
+    
+    # Если запрошено только отображение конфигурации
+    if show_only:
+        config_data = load_config_from_json('src/config.json')
+        print(json.dumps(config_data, ensure_ascii=False, indent=2))
+        return
     
     # Если запрошено редактирование конфигурации
     if edit_config:
@@ -395,10 +401,12 @@ def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
         payment_system_probabilities = updated_config['payment_system_probabilities']
         gender_probabilities = updated_config['gender_probabilities']
     
+    # Остальной код генерации датасета...
     patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
     female_names = read_simple_list(female_names_file)
     surnames = read_surnames(surnames_file)
     clients = []
+    
     for _ in range(number_of_clients):
         gender = generate_gender(gender_probabilities)
         payment_system = generate_payment_system(payment_system_probabilities)
