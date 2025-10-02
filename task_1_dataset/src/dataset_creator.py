@@ -75,6 +75,142 @@ def get_default_config():
         "gender_probabilities" : {'male': 0.5, 'female': 0.5}
     }
 
+def edit_config_interactively():
+    """Функция для интерактивного редактирования конфигурации"""
+    config_path = 'src/config.json'
+    config = load_config_from_json(config_path)
+    
+    print("\n=== РЕДАКТИРОВАНИЕ КОНФИГУРАЦИИ ===")
+    print("Текущая конфигурация:")
+    print(json.dumps(config, ensure_ascii=False, indent=2))
+    
+    while True:
+        print("\nЧто вы хотите изменить?")
+        print("1. Вероятности гражданства")
+        print("2. Вероятности банков")
+        print("3. Вероятности платежных систем")
+        print("4. Вероятности полов")
+        print("5. Сохранить и выйти")
+        print("6. Выйти без сохранения")
+        
+        choice = input("Выберите опцию (1-6): ").strip()
+        
+        if choice == '1':
+            print("\n--- Вероятности гражданства ---")
+            print("Введите новые вероятности (сумма должна быть равна 1.0):")
+            new_probs = {}
+            for country in config['citizenship_probabilities'].keys():
+                while True:
+                    try:
+                        prob = float(input(f"{country} [{config['citizenship_probabilities'][country]}]: "))
+                        if 0 <= prob <= 1:
+                            new_probs[country] = prob
+                            break
+                        else:
+                            print("Вероятность должна быть между 0 и 1")
+                    except ValueError:
+                        print("Введите число")
+            
+            total = sum(new_probs.values())
+            if abs(total - 1.0) > 0.001:
+                print(f"Сумма вероятностей ({total}) не равна 1.0. Нормализую...")
+                for country in new_probs:
+                    new_probs[country] = round(new_probs[country] / total, 3)
+            
+            config['citizenship_probabilities'] = new_probs
+            print("Обновленные вероятности гражданства:", new_probs)
+            
+        elif choice == '2':
+            print("\n--- Вероятности банков ---")
+            print("Введите новые вероятности (сумма должна быть равна 1.0):")
+            new_probs = {}
+            for bank in config['banks_weights'].keys():
+                while True:
+                    try:
+                        prob = float(input(f"{bank} [{config['banks_weights'][bank]}]: "))
+                        if 0 <= prob <= 1:
+                            new_probs[bank] = prob
+                            break
+                        else:
+                            print("Вероятность должна быть между 0 и 1")
+                    except ValueError:
+                        print("Введите число")
+            
+            total = sum(new_probs.values())
+            if abs(total - 1.0) > 0.001:
+                print(f"Сумма вероятностей ({total}) не равна 1.0. Нормализую...")
+                for bank in new_probs:
+                    new_probs[bank] = round(new_probs[bank] / total, 3)
+            
+            config['banks_weights'] = new_probs
+            print("Обновленные вероятности банков:", new_probs)
+            
+        elif choice == '3':
+            print("\n--- Вероятности платежных систем ---")
+            print("Введите новые вероятности (сумма должна быть равна 1.0):")
+            new_probs = {}
+            for system in config['payment_system_probabilities'].keys():
+                while True:
+                    try:
+                        prob = float(input(f"{system} [{config['payment_system_probabilities'][system]}]: "))
+                        if 0 <= prob <= 1:
+                            new_probs[system] = prob
+                            break
+                        else:
+                            print("Вероятность должна быть между 0 и 1")
+                    except ValueError:
+                        print("Введите число")
+            
+            total = sum(new_probs.values())
+            if abs(total - 1.0) > 0.001:
+                print(f"Сумма вероятностей ({total}) не равна 1.0. Нормализую...")
+                for system in new_probs:
+                    new_probs[system] = round(new_probs[system] / total, 3)
+            
+            config['payment_system_probabilities'] = new_probs
+            print("Обновленные вероятности платежных систем:", new_probs)
+            
+        elif choice == '4':
+            print("\n--- Вероятности полов ---")
+            print("Введите новые вероятности (сумма должна быть равна 1.0):")
+            new_probs = {}
+            for gender in config['gender_probabilities'].keys():
+                while True:
+                    try:
+                        prob = float(input(f"{gender} [{config['gender_probabilities'][gender]}]: "))
+                        if 0 <= prob <= 1:
+                            new_probs[gender] = prob
+                            break
+                        else:
+                            print("Вероятность должна быть между 0 и 1")
+                    except ValueError:
+                        print("Введите число")
+            
+            total = sum(new_probs.values())
+            if abs(total - 1.0) > 0.001:
+                print(f"Сумма вероятностей ({total}) не равна 1.0. Нормализую...")
+                for gender in new_probs:
+                    new_probs[gender] = round(new_probs[gender] / total, 3)
+            
+            config['gender_probabilities'] = new_probs
+            print("Обновленные вероятности полов:", new_probs)
+            
+        elif choice == '5':
+            try:
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+                print("Конфигурация успешно сохранена!")
+            except Exception as e:
+                print(f"Ошибка при сохранении конфигурации: {e}")
+            return config
+            
+        elif choice == '6':
+            print("Изменения не сохранены.")
+            return load_config_from_json(config_path)
+            
+        else:
+            print("Неверный выбор. Попробуйте снова.")
+
 citizenship_probabilities = load_config_from_json('src/config.json')['citizenship_probabilities']
 bank_probabilities = load_config_from_json('src/config.json')['banks_weights']
 payment_system_probabilities = load_config_from_json('src/config.json')['payment_system_probabilities']
@@ -246,7 +382,19 @@ def create_client(gender: str, names: list, surnames: dict, patronymics: dict,
     return client
 
 def create_dataset(number_of_clients: int, names_w_patronymics_file: str,
-                    female_names_file: str, surnames_file: str, output_file: str) -> None:
+                    female_names_file: str, surnames_file: str, output_file: str,
+                    edit_config: bool = False) -> None:
+    
+    # Если запрошено редактирование конфигурации
+    if edit_config:
+        updated_config = edit_config_interactively()
+        # Обновляем глобальные переменные с новыми настройками
+        global citizenship_probabilities, bank_probabilities, payment_system_probabilities, gender_probabilities
+        citizenship_probabilities = updated_config['citizenship_probabilities']
+        bank_probabilities = updated_config['banks_weights']
+        payment_system_probabilities = updated_config['payment_system_probabilities']
+        gender_probabilities = updated_config['gender_probabilities']
+    
     patronymics, male_names = read_male_names_with_both_patronymics(names_w_patronymics_file)
     female_names = read_simple_list(female_names_file)
     surnames = read_surnames(surnames_file)

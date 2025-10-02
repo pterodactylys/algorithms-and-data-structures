@@ -1,21 +1,28 @@
 {
-    "citizenship_probabilities": {
-        "RU": 0.75,
-        "BY": 0.15, 
-        "KZ": 0.10
-    },
-
-    "banks_weights" : {
-        "Sberbank": 0.3, "Tinkoff": 0.2, "VTB": 0.15, "Alfa-Bank": 0.1,
-        "Gazprombank": 0.05, "Raiffeisenbank": 0.05, "Otkritie": 0.05,
-        "Promsvyazbank": 0.04, "Rosbank": 0.03, "UniCredit Bank": 0.03
-    },
-
-    "payment_system_probabilities" : {
-        "VISA": 0.5, "MasterCard": 0.3, "Mir": 0.2
-    },
-
-    "gender_probabilities" : {
-        "male" : 0.49, "female" : 0.51
-    }
+  "citizenship_probabilities": {
+    "RU": 0.5,
+    "BY": 0.2,
+    "KZ": 0.3
+  },
+  "banks_weights": {
+    "Sberbank": 0.3,
+    "Tinkoff": 0.2,
+    "VTB": 0.15,
+    "Alfa-Bank": 0.1,
+    "Gazprombank": 0.05,
+    "Raiffeisenbank": 0.05,
+    "Otkritie": 0.05,
+    "Promsvyazbank": 0.04,
+    "Rosbank": 0.03,
+    "UniCredit Bank": 0.03
+  },
+  "payment_system_probabilities": {
+    "VISA": 0.5,
+    "MasterCard": 0.3,
+    "Mir": 0.2
+  },
+  "gender_probabilities": {
+    "male": 0.49,
+    "female": 0.51
+  }
 }
