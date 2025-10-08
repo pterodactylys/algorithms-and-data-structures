@@ -1,5 +1,6 @@
 import time
 import os
+import json
 
 from src import dataset_creator as creator
 
@@ -8,33 +9,20 @@ def show_main_menu():
     print('\n' + '='*60)
     print('    Генератор синтетического датасета "Платная поликлиника"')
     print('='*60)
-    print("1. Сгенерировать датасет")
-    print("2. Редактировать конфигурацию")
-    print("3. Показать текущую конфигурацию")
-    print("4. Выйти")
+    print("1. Сгенерировать датасет с текущими настройками")
+    print("2. Сгенерировать датасет с изменением настроек")
+    print("3. Редактировать конфигурацию")
+    print("4. Показать текущую конфигурацию")
+    print("5. Выйти")
     
     while True:
-        choice = input("\nВыберите действие (1-4): ").strip()
-        if choice in ['1', '2', '3', '4']:
+        choice = input("\nВыберите действие (1-5): ").strip()
+        if choice in ['1', '2', '3', '4', '5']:
             return choice
         else:
-            print("Неверный выбор. Пожалуйста, введите число от 1 до 4.")
+            print("Неверный выбор. Пожалуйста, введите число от 1 до 5.")
 
-def show_configuration_menu():
-    """Показывает меню конфигурации"""
-    print('\n' + '='*40)
-    print('    РЕДАКТИРОВАНИЕ КОНФИГУРАЦИИ')
-    print('='*40)
-    print("1. Изменить параметры перед генерацией")
-    print("2. Генерировать с текущими настройками")
-    print("3. Вернуться в главное меню")
-    
-    while True:
-        choice = input("\nВыберите действие (1-3): ").strip()
-        if choice in ['1', '2', '3']:
-            return choice
-        else:
-            print("Неверный выбор. Пожалуйста, введите число от 1 до 3.")
+# Удалена функция show_configuration_menu() - логика упрощена
 
 def get_number_of_records():
     """Запрашивает у пользователя количество записей для генерации"""
@@ -49,6 +37,24 @@ def get_number_of_records():
         except ValueError:
             print("Ошибка: введите целое число!")
 
+def show_current_config():
+    """Показывает текущую конфигурацию без создания файлов"""
+    try:
+        config_data = creator.load_config_from_json('src/config.json')
+        
+        print(json.dumps(config_data, ensure_ascii=False, indent=2))
+        
+        # Показываем краткую сводку
+        print(f"\nКраткая сводка:")
+        print(f"• Вероятности гражданства: {len(config_data.get('citizenship_probabilities', {}))} стран")
+        print(f"• Банки: {len(config_data.get('banks_weights', {}))} банков")
+        print(f"• Платежные системы: {len(config_data.get('payment_system_probabilities', {}))} систем")
+        
+    except FileNotFoundError:
+        print("Файл конфигурации не найден. Будут использованы настройки по умолчанию.")
+    except Exception as e:
+        print(f"Ошибка при загрузке конфигурации: {e}")
+
 
 def main():
     names_w_patronymics_file = 'lists/male_names_with_patronymics.txt'
@@ -59,46 +65,42 @@ def main():
         choice = show_main_menu()
         
         if choice == '1':
-            config_choice = show_configuration_menu()
-            
-            if config_choice == '1':
-                num_records = get_number_of_records()
-                print(f"\nЗапуск генерации {num_records} записей с редактированием конфигурации...")
-                start = time.time()
-                creator.create_dataset(num_records, names_w_patronymics_file, female_names_file, 
-                                      surnames_file, 'dataset.xlsx', edit_config=True)
-                end = time.time()
-                length = round(end - start, 3)
-                print(f"\nДатасет сгенерирован и сохранён в dataset.xlsx")
-                print(f"Время генерации: {length} секунд")
-                
-            elif config_choice == '2':
-                num_records = get_number_of_records()
-                print(f"\nЗапуск генерации {num_records} записей с текущими настройками...")
-                start = time.time()
-                creator.create_dataset(num_records, names_w_patronymics_file, female_names_file, 
-                                      surnames_file, 'dataset.xlsx', edit_config=False)
-                end = time.time()
-                length = round(end - start, 3)
-                print(f"\nДатасет сгенерирован и сохранён в dataset.xlsx")
-                print(f"Время генерации: {length} секунд")
-                
-            elif config_choice == '3':
-                continue
+            # Генерация с текущими настройками
+            num_records = get_number_of_records()
+            print(f"\nЗапуск генерации {num_records} записей с текущими настройками...")
+            start = time.time()
+            creator.create_dataset(num_records, names_w_patronymics_file, female_names_file, 
+                                  surnames_file, 'dataset.xlsx', edit_config=False)
+            end = time.time()
+            length = round(end - start, 3)
+            print(f"\nДатасет сгенерирован и сохранён в dataset.xlsx")
+            print(f"Время генерации: {length} секунд")
                 
         elif choice == '2':
+            # Генерация с изменением настроек
+            num_records = get_number_of_records()
+            print(f"\nЗапуск генерации {num_records} записей с редактированием конфигурации...")
+            start = time.time()
+            creator.create_dataset(num_records, names_w_patronymics_file, female_names_file, 
+                                  surnames_file, 'dataset.xlsx', edit_config=True)
+            end = time.time()
+            length = round(end - start, 3)
+            print(f"\nДатасет сгенерирован и сохранён в dataset.xlsx")
+            print(f"Время генерации: {length} секунд")
+                
+        elif choice == '3':
+            # Редактирование конфигурации без генерации
             print("\nПереход в редактор конфигурации...")
             creator.edit_config_interactively()
             print("Возврат в главное меню...")
             
-        elif choice == '3':
-            print("\nТекущая конфигурация:")
-            creator.create_dataset(0, names_w_patronymics_file, female_names_file, 
-                                 surnames_file, 'temp.xlsx', edit_config=False, show_only=True)
-            if os.path.exists('temp.xlsx'):
-                os.remove('temp.xlsx')
-                
         elif choice == '4':
+            # Показ текущей конфигурации
+            print("\nТекущая конфигурация:")
+            show_current_config()
+                
+        elif choice == '5':
+            # Выход
             print("Программа завершена.")
             break
 
