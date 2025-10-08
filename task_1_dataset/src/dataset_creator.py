@@ -4,66 +4,51 @@ import json
 from src import medical_information as md
 
 
-def read_male_names_with_both_patronymics(filename: str) -> tuple[dict, list]:
-    try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            data = []
-            names_only = []
+def read_male_names_with_both_patronymics(filename: str) -> tuple[list, list]:
+    """Читает мужские имена с отчествами из файла"""
+    with open(filename, 'r', encoding='utf-8') as file:
+        data = []
+        names_only = []
+        
+        for line in file:
+            line = line.strip()
+            if line and ':' in line:
+                name_part, patronymics_part = line.split(':', 1)
+                name = name_part.strip()
+                names_only.append(name)
                 
-            for line in file:
-                line = line.strip()
-                if line and ':' in line:
-                    name_part, patronymics_part = line.split(':', 1)
-                    name = name_part.strip()
-                    names_only.append(name)
-                        
-                    patronymics = patronymics_part.split(',')
-                    if len(patronymics) >= 2:
-                        data.append({
-                            'male': patronymics[0].strip(),
-                            'female': patronymics[1].strip()
-                        })
-            return data, names_only
-    except FileNotFoundError:
-        print(f"Файл {filename} не найден.")
-        return [], []
+                patronymics = patronymics_part.split(',')
+                if len(patronymics) >= 2:
+                    data.append({
+                        'male': patronymics[0].strip(),
+                        'female': patronymics[1].strip()
+                    })
+        
+        return data, names_only
 
 def read_surnames(filename: str) -> list:
-    try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            surnames = []
-            for line in file:
-                line = line.strip()
-                if line and ',' in line:
-                    male_surname, female_surname = line.split(',', 1)
-                    surnames.append({
-                        'male': male_surname.strip(),
-                        'female': female_surname.strip()
-                    })
-            return surnames
-    except FileNotFoundError:
-        print(f"Файл {filename} не найден.")
-        return []
+    """Читает фамилии из файла"""
+    with open(filename, 'r', encoding='utf-8') as file:
+        surnames = []
+        for line in file:
+            line = line.strip()
+            if line and ',' in line:
+                male_surname, female_surname = line.split(',', 1)
+                surnames.append({
+                    'male': male_surname.strip(),
+                    'female': female_surname.strip()
+                })
+        return surnames
 
-def read_simple_list(filename: str) -> list[dict]:
-    try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            return [line.strip() for line in file if line.strip()]
-    except FileNotFoundError:
-        print(f"Файл {filename} не найден.")
-        return []
+def read_simple_list(filename: str) -> list:
+    """Читает простой список строк из файла"""
+    with open(filename, 'r', encoding='utf-8') as file:
+        return [line.strip() for line in file if line.strip()]
     
 def load_config_from_json(file_path):
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        return config
-    except FileNotFoundError:
-        print(f"Конфиг файл {file_path} не найден. Использую настройки по умолчанию.")
-        return get_default_config()
-    except json.JSONDecodeError:
-        print(f"Ошибка в формате JSON файла {file_path}. Использую настройки по умолчанию.")
-        return get_default_config()
+    """Загружает конфигурацию из JSON файла"""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 def get_default_config():
     return {
@@ -216,72 +201,49 @@ bank_probabilities = load_config_from_json('src/config.json')['banks_weights']
 payment_system_probabilities = load_config_from_json('src/config.json')['payment_system_probabilities']
 gender_probabilities = load_config_from_json('src/config.json')['gender_probabilities']
     
-def create_full_name(names: list, surnames: dict, patronymics: dict, gender: str) -> dict:
-    full_name = {}
-    if gender == 'male':
-        full_name['Фамилия'] = (random.choice(surnames)['male'])
-        full_name['Имя'] = random.choice(names)
-        full_name['Отчество'] = (random.choice(patronymics)['male'])
-        return full_name
-    elif gender == 'female':
-        full_name['Фамилия'] = (random.choice(surnames)['female'])
-        full_name['Имя'] = random.choice(names)
-        full_name['Отчество'] = (random.choice(patronymics)['female'])
-        return full_name
-    else: 
-        raise ValueError
+def create_full_name(names: list, surnames: list, patronymics: list, gender: str) -> dict:
+    """Создает полное имя для клиента"""
+    surname_data = random.choice(surnames)
+    patronymic_data = random.choice(patronymics)
+    
+    return {
+        'Фамилия': surname_data[gender],
+        'Имя': random.choice(names),
+        'Отчество': patronymic_data[gender]
+    }
+
+def generate_random_choice_by_probability(probabilities: dict[str, float]) -> str:
+    """Универсальная функция для генерации случайного выбора на основе вероятностей"""
+    total_prob = sum(probabilities.values())
+    if abs(total_prob - 1.0) > 0.001:
+        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
+    
+    rand_num = random.random()
+    cumulative_prob = 0.0
+
+    for choice, prob in probabilities.items():
+        cumulative_prob += prob
+        if rand_num < cumulative_prob:
+            return choice
+    
+    # Если по какой-то причине не был выбран ни один вариант, вернуть последний
+    return list(probabilities.keys())[-1]
 
 def generate_citizenship_simple(country_probabilities: dict[str]) -> str:
-    total_prob = sum(country_probabilities.values())
-    if abs(total_prob - 1.0) > 0.001:
-        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
-    
-    rand_num = random.random()
-    cumulative_prob = 0.0
-
-    for country, prob in country_probabilities.items():
-        cumulative_prob += prob
-        if rand_num < cumulative_prob:
-            return country
+    """Генерирует гражданство на основе вероятностей"""
+    return generate_random_choice_by_probability(country_probabilities)
         
 def generate_bank(bank_probabilities: dict[str]) -> str:
-    total_prob = sum(bank_probabilities.values())
-    if abs(total_prob - 1.0) > 0.001:
-        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
-    
-    rand_num = random.random()
-    cumulative_prob = 0.0
-
-    for bank, prob in bank_probabilities.items():
-        cumulative_prob += prob
-        if rand_num < cumulative_prob:
-            return bank
+    """Генерирует банк на основе вероятностей"""
+    return generate_random_choice_by_probability(bank_probabilities)
         
 def generate_payment_system(payment_probabilities: dict[str]) -> str:
-    total_prob = sum(payment_probabilities.values())
-    if abs(total_prob - 1.0) > 0.001:
-        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
-    
-    rand_num = random.random()
-    cumulative_prob = 0.0
-
-    for system, prob in payment_probabilities.items():
-        cumulative_prob += prob
-        if rand_num < cumulative_prob:
-            return system
+    """Генерирует платежную систему на основе вероятностей"""
+    return generate_random_choice_by_probability(payment_probabilities)
         
 def generate_gender(gender_probabilities: dict[str]) -> str:
-    total_prob = sum(gender_probabilities.values())
-    if abs(total_prob - 1.0) > 0.001:
-        raise ValueError(f"Сумма вероятностей должна быть равна 1.0, получено {total_prob}")
-    
-    rand_num = random.random()
-    cumulative_prob = 0.0
-
-    for gender, prob in gender_probabilities.items():
-        cumulative_prob += prob
-        if rand_num < cumulative_prob:
-            return gender
+    """Генерирует пол на основе вероятностей"""
+    return generate_random_choice_by_probability(gender_probabilities)
     
 def create_passport_number(country) -> str:
     if country == 'RU':
