@@ -1,4 +1,5 @@
 build_*/
+.vscode/
 lib/
 libs/
 __pycache__/
