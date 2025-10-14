@@ -333,3 +333,34 @@ def microaggregation_of_datas(data: pd.DataFrame, data_column: str) -> pd.DataFr
     data[data_column] = data[data_column].apply(iso8601_to_quarter)
     return data
 
+def save_current_state(data: pd.DataFrame, file_path: str):
+    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+        data.to_excel(writer, index=False)
+        worksheet = writer.sheets['Sheet1']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+        
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        
+        adjusted_width = (max_length + 2) * 1.1
+        worksheet.column_dimensions[column_letter].width = adjusted_width
+    data.to_excel(file_path, index=False)
+
+def delete_columns(data: pd.DataFrame, columns: list) -> pd.DataFrame:
+    """
+    Delete specified columns from a pandas DataFrame.
+    
+    Args:
+        data (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to delete
+    
+    Returns:
+        pd.DataFrame: DataFrame with specified columns removed
+    """
+    return data.drop(columns=columns, axis=1)
