@@ -269,12 +269,33 @@ def calculate_k_anonymity(data: pd.DataFrame, quasi_identifiers: list):
     }
 
 def top_bad_k_anonymities(data: pd.DataFrame, quasi_identifiers: list, top_n: int = 5):
-    grouped = data.groupby(quasi_identifiers, observed=True).size()
-    if grouped.empty:
-        return []
-    worst_sizes = grouped.nsmallest(top_n).values
-    unique_sizes, counts = np.unique(worst_sizes, return_counts=True)
-    return list(zip(unique_sizes.tolist(), counts.tolist()))
+    """
+    Возвращает топ-N самых плохих значений k-anonymity
+    
+    Returns:
+        list: Список кортежей (k_value, percentage) отсортированный по убыванию k
+    """
+    # Группируем по квази-идентификаторам и считаем размеры групп
+    grouped = data.groupby(quasi_identifiers).size().reset_index(name='group_size')
+    
+    # Считаем количество записей для каждого размера группы
+    k_counts = grouped['group_size'].value_counts().sort_index()
+    
+    # Вычисляем проценты
+    total_records = len(data)
+    k_percentages = []
+    
+    for k_value, count in k_counts.items():
+        # count - это количество групп с размером k_value
+        # Общее количество записей в таких группах = count * k_value
+        records_in_k_groups = count * k_value
+        percentage = records_in_k_groups / total_records
+        k_percentages.append((k_value, percentage))
+    
+    # Сортируем по k_value (от худшего к лучшему) и берем топ-N
+    k_percentages.sort(key=lambda x: x[0])  # Сортировка по k_value по возрастанию
+    
+    return k_percentages[:top_n]
 
 def detailed_k_anonymity_analysis(data: pd.DataFrame, quasi_identifiers: list):
     result = calculate_k_anonymity(data, quasi_identifiers)
