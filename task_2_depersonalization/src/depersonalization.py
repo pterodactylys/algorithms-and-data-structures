@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import random
+import os
+from openpyxl import load_workbook
 
 organ_systems_by_symptoms = {
     'боль в грудной клетке давящего характера': 'Сердечно-сосудистая система',
@@ -256,9 +258,8 @@ organ_systems_by_symptoms = {
     'отеки': 'Нарушения питания',
     'слабость и утомляемость': 'Нарушения питания'
 }
-
 def calculate_k_anonymity(data: pd.DataFrame, quasi_identifiers: list):
-    grouped = data.groupby(quasi_identifiers).size()
+    grouped = data.groupby(quasi_identifiers, observed=True).size()
     k_anonymity = grouped.min() if not grouped.empty else 0
     
     return {
@@ -266,6 +267,14 @@ def calculate_k_anonymity(data: pd.DataFrame, quasi_identifiers: list):
         "unique_groups": int(grouped.nunique()),
         "group_sizes": grouped
     }
+
+def top_bad_k_anonymities(data: pd.DataFrame, quasi_identifiers: list, top_n: int = 5):
+    grouped = data.groupby(quasi_identifiers, observed=True).size()
+    if grouped.empty:
+        return []
+    worst_sizes = grouped.nsmallest(top_n).values
+    unique_sizes, counts = np.unique(worst_sizes, return_counts=True)
+    return list(zip(unique_sizes.tolist(), counts.tolist()))
 
 def detailed_k_anonymity_analysis(data: pd.DataFrame, quasi_identifiers: list):
     result = calculate_k_anonymity(data, quasi_identifiers)
@@ -279,13 +288,11 @@ def masking_data(data: pd.DataFrame, quasi_identifiers: list, begin_len: int, en
         data[col] = data[col].astype(str).str[:begin_len] + "****" + data[col].astype(str).str[end_len:]
     return data
 
-def encrypt_name(data: pd.DataFrame, name_column: str) -> pd.DataFrame:
-    name_sum = data[name_column].apply(lambda x: sum(ord(c) for c in x))
-    data[name_column] = name_sum % 2 + 1
+def pseudoname(data: pd.DataFrame, name_column: str) -> pd.DataFrame:
+    data[name_column] = data[name_column].apply(lambda x: f'Пользователь_{(ord(x[0]) * random.randint(1, 100)) % 1000}')
     return data
 
 def generalize_passport_data(data: pd.DataFrame, passport_column: str) -> pd.DataFrame:
-    # 88 27 220214
     for i in range(len(data)):
         passport_number = data[passport_column][i]
         if len(passport_number) == 12:
@@ -315,12 +322,43 @@ def generalize_costs_quantile(df, cost_column, quantiles=None, labels=None):
     df[cost_column] = cost_categories
     return df, bin_edges, labels
 
-def generalize_symptoms(data: pd.DataFrame, symptoms_column: str):
+def generalize_symptoms(data: pd.DataFrame, symptoms_column: str, deep_generalization: bool):
     for i in range(len(data)):
         symptoms = data[symptoms_column][i].split(", ")
         for j in range(len(symptoms)):
             symptoms[j] = organ_systems_by_symptoms[symptoms[j]]
         data.at[i, symptoms_column] = random.choice(symptoms)
+    if deep_generalization:
+        data = generalize_symptoms_more(data, symptoms_column)
+    return data
+
+def generalize_symptoms_more(data: pd.DataFrame, symptoms_column: str):
+    for i in range(len(data)):
+        system_mapping = {
+            'Сердечно-сосудистая система': 'Внутренние органы',
+            'Дыхательная система': 'Внутренние органы',
+            'Пищеварительная система': 'Внутренние органы',
+            'Мочевыделительная система': 'Внутренние органы',
+            'Опорно-двигательная система': 'Внутренние органы',
+            'Мочеполовая система': 'Внутренние органы',
+            'Эндокринная система': 'Внутренние органы',
+            'Кожа и придатки': 'Внешние органы',
+            'Органы чувств': 'Неврологические',
+            'Иммунная система': 'Неврологические',
+            'Женская половая система': 'Внутренние органы',
+            'Мужская половая система': 'Внутренние органы',
+            'Кровь и кровеносная система': 'Внутренние органы',
+            'Лимфатическая система': 'Внутренние органы',
+            'Психическая система': 'Неврологические',
+            'Стоматологическая система': 'Внутренние органы',
+            'Реабилитационная система': 'Внутренние органы',
+            'Сомнологическая система': 'Неврологические',
+            'Профессиональные заболевания': 'Внутренние органы'
+        }
+        if data[symptoms_column][i] in system_mapping:
+            data.at[i, symptoms_column] = system_mapping[data[symptoms_column][i]]
+        else:
+            data.at[i, symptoms_column] = "Другое"
     return data
 
 def iso8601_to_quarter(date_str: str) -> str:
@@ -329,28 +367,35 @@ def iso8601_to_quarter(date_str: str) -> str:
     year = date.year
     return f"Q{quarter} {year}"
 
-def microaggregation_of_datas(data: pd.DataFrame, data_column: str) -> pd.DataFrame:
-    data[data_column] = data[data_column].apply(iso8601_to_quarter)
+def microaggregation_of_datas(data: pd.DataFrame, data_column: str, deep_generalization: bool) -> pd.DataFrame:
+    if deep_generalization:
+        data[data_column] = data[data_column].apply(lambda x: pd.to_datetime(x).year)
+    else:
+        data[data_column] = data[data_column].apply(iso8601_to_quarter)
     return data
 
 def save_current_state(data: pd.DataFrame, file_path: str):
+
+    # If file exists, remove it to allow overwrite
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
         data.to_excel(writer, index=False)
         worksheet = writer.sheets['Sheet1']
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
-        
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        
-        adjusted_width = (max_length + 2) * 1.1
-        worksheet.column_dimensions[column_letter].width = adjusted_width
-    data.to_excel(file_path, index=False)
+
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except Exception:
+                    pass
+
+            adjusted_width = (max_length + 2) * 1.1
+            worksheet.column_dimensions[column_letter].width = adjusted_width
 
 def delete_columns(data: pd.DataFrame, columns: list) -> pd.DataFrame:
     """
