@@ -2,8 +2,33 @@ import pandas as pd
 from pathlib import Path
 from src import depersonalization as dp
 
-filepath = "files/dataset_100k_depersonalized.xlsx"
+filepath = "files/dataset_200k.xlsx"
+
 
 df = pd.read_excel(filepath)
-print(dp.calculate_k_anonymity_with_stats(df, ['Паспортные данные', 'Симптомы', 'Дата посещения врача',
-    'Стоимость анализов', 'Карта оплаты']))
+df = dp.decompose_dates(df, 'Дата посещения врача', 'Квартал')
+df = dp.delete_columns(df, ['Дата готовности анализов'])
+df = dp.decompose_bank_card(df, 'Карта оплаты', 'Платежная система')
+df = dp.mask_passport_data(df, 'Паспортные данные', 1)
+df = dp.generalize_snils(df, 'СНИЛС')
+
+# df = dp.map_symptoms_to_systems_replace(df, 'Симптомы', dp.organ_systems)
+# df = dp.map_tests_to_systems_replace(df, 'Анализы', dp.tests_by_organ_system)
+# df = dp.unify_medical_columns(df, 'Симптомы', 'Врач', 'Анализы', dp.organ_systems, dp.tests_by_organ_system)
+df = dp.combine_fio_to_uid(df, 'Фамилия', 'Имя', 'Отчество')
+df = dp.categorize_costs_quantile(df, 'Стоимость анализов', 3)
+df = dp.generalize_doctors_strong(df, 'Врач')
+df["Симптомы"] = df["Врач"]
+df["Анализы"] = df["Врач"]
+
+
+print(dp.calculate_k_anonymity_from_df_debug(df, ['Паспортные данные', 'СНИЛС', 
+         'Дата посещения врача', 'Стоимость анализов', 'Врач',
+        'Платежная система']))
+print(dp.worst_k_anonymity_groups(df, ['Паспортные данные', 'СНИЛС', 
+         'Дата посещения врача', 'Стоимость анализов', 'Врач',
+        'Платежная система'], n=10))
+dp.copy_and_save_current_state(df)
+
+
+
