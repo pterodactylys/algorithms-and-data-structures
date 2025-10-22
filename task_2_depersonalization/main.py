@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from src import depersonalization as dp
 
-filepath = "files/dataset_200k.xlsx"
+filepath = "files/dataset_100k.xlsx"
 
 
 df = pd.read_excel(filepath)
@@ -21,14 +21,29 @@ df = dp.generalize_doctors_strong(df, 'Врач')
 df["Симптомы"] = df["Врач"]
 df["Анализы"] = df["Врач"]
 
+df, rep = dp.suppress_worst_k_groups_by_rows(df, ['Паспортные данные', 'СНИЛС', 
+         'Дата посещения врача', 'Стоимость анализов', 'Врач',
+        'Платежная система'], len(df) * 0.03)
+print(rep)
 
 print(dp.calculate_k_anonymity_from_df_debug(df, ['Паспортные данные', 'СНИЛС', 
          'Дата посещения врача', 'Стоимость анализов', 'Врач',
         'Платежная система']))
+
 print(dp.worst_k_anonymity_groups(df, ['Паспортные данные', 'СНИЛС', 
          'Дата посещения врача', 'Стоимость анализов', 'Врач',
         'Платежная система'], n=10))
-dp.copy_and_save_current_state(df)
+
+print(dp.visualize_distributions(df, ['Паспортные данные', 'СНИЛС', 
+         'Дата посещения врача', 'Стоимость анализов', 'Врач',
+        'Платежная система']))
+
+print(dp.visualize_k_group_sizes(df, ['Паспортные данные', 'СНИЛС', 
+         'Дата посещения врача', 'Стоимость анализов', 'Врач',
+        'Платежная система'], top_n=100))
+
+
+# dp.copy_and_save_current_state(df)
 
 
 

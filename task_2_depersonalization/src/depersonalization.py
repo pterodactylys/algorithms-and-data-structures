@@ -630,13 +630,6 @@ def combine_fio_to_uid(df: pd.DataFrame, surname_col: str, name_col: str, patron
     return df
 
 
-
-def generalize_symptoms(df: pd.DataFrame, symptoms_column: str) -> pd.DataFrame:
-    df = df.copy()
-    
-    return df
-
-
 def generalize_snils(df: pd.DataFrame, snils_column: str) -> pd.DataFrame:
     df = df.copy()
     df[snils_column] = df[snils_column].apply(lambda x: 'Гражданин РФ' if x not in ['Гражданин РБ', 'Гражданин РК'] else x)
@@ -801,5 +794,256 @@ def copy_and_save_current_state(data: pd.DataFrame) -> pd.DataFrame:
     save_current_state(copy, "files/dataset_5k_copy.xlsx")
     return copy
 
+# ...existing code...
+
+def suppress_worst_k_groups_by_rows(
+    df: pd.DataFrame,
+    quasi_identifiers: list[str],
+    rows_to_remove: int,
+    allow_overshoot: bool = True,
+) -> tuple[pd.DataFrame, dict]:
+    """
+    Подавляет (удаляет) записи, выбирая группы с худшим k (минимальным размером),
+    пока сумма удалённых строк не достигнет rows_to_remove.
+    
+    Параметры:
+      - rows_to_remove: целевое число строк для удаления
+      - allow_overshoot: если True — разрешить перевысить rows_to_remove на размер последней выбранной группы
+
+    Возвращает:
+      (df_filtered, report)
+      report = {
+        'before_k': int,          # k до подавления
+        'after_k': int,           # k после подавления
+        'groups_removed': int,    # сколько групп удалено
+        'rows_removed': int,      # сколько строк удалено
+        'removed_frac': float,    # доля удалённых строк
+        'removed_k_hist': pd.Series,  # распределение размеров удалённых групп (k -> кол-во групп)
+      }
+    """
+    if rows_to_remove <= 0 or df.empty:
+        # Ничего не удаляем
+        k_before = int(df.groupby(quasi_identifiers, observed=True).size().min()) if len(df) else 0
+        return df.copy(), {
+            'before_k': k_before, 'after_k': k_before, 'groups_removed': 0,
+            'rows_removed': 0, 'removed_frac': 0.0, 'removed_k_hist': pd.Series(dtype=int)
+        }
+
+    missing = [c for c in quasi_identifiers if c not in df.columns]
+    if missing:
+        raise ValueError(f"Отсутствуют колонки: {missing}")
+
+    # Устойчивая строковая ключ-склейка (без проблем с Period/категориями)
+    sep = "\u241F"
+    keys = df[quasi_identifiers].astype(str).agg(sep.join, axis=1)
+
+    group_sizes = keys.value_counts()  # index=key, value=размер группы (k)
+    if group_sizes.empty:
+        return df.copy(), {
+            'before_k': 0, 'after_k': 0, 'groups_removed': 0,
+            'rows_removed': 0, 'removed_frac': 0.0, 'removed_k_hist': pd.Series(dtype=int)
+        }
+
+    before_k = int(group_sizes.min())
+
+    # Идём от меньших k к большим
+    gs_sorted = group_sizes.sort_values(ascending=True)
+
+    picked = []
+    removed_rows = 0
+
+    for key, k_val in gs_sorted.items():
+        k_val = int(k_val)
+        # Если добавление этой группы превысит лимит — решаем по allow_overshoot
+        if removed_rows + k_val > rows_to_remove and not allow_overshoot:
+            break
+        picked.append((key, k_val))
+        removed_rows += k_val
+        if removed_rows >= rows_to_remove:
+            break
+
+    if not picked:
+        # Ничего не удалили (слишком маленький лимит без overshoot)
+        return df.copy(), {
+            'before_k': before_k, 'after_k': before_k, 'groups_removed': 0,
+            'rows_removed': 0, 'removed_frac': 0.0, 'removed_k_hist': pd.Series(dtype=int)
+        }
+
+    picked_keys = {k for k, _ in picked}
+    mask_keep = ~keys.isin(picked_keys)
+    df_filtered = df.loc[mask_keep].copy()
+
+    if not df_filtered.empty:
+        new_group_sizes = df_filtered.groupby(quasi_identifiers, observed=True).size()
+        after_k = int(new_group_sizes.min())
+    else:
+        after_k = 0
+
+    removed_k_hist = pd.Series([k for _, k in picked], dtype=int).value_counts().sort_index()
+    report = {
+        'before_k': before_k,
+        'after_k': after_k,
+        'groups_removed': len(picked),
+        'rows_removed': removed_rows,
+        'removed_frac': removed_rows / max(len(df), 1),
+        'removed_k_hist': removed_k_hist
+    }
+    return df_filtered, report
+
 def delete_columns(data: pd.DataFrame, columns: list) -> pd.DataFrame:
     return data.drop(columns=columns, axis=1)
+
+
+
+
+
+from pathlib import Path
+import matplotlib
+matplotlib.use("Agg")  # рендер без окна
+import matplotlib.pyplot as plt
+
+def _sanitize_filename(name: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "._- " else "_" for ch in str(name)).strip().replace(" ", "_")
+
+def visualize_distributions(
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    output_dir: str = "files/plots",
+    max_categories: int = 20
+) -> list[str]:
+    """
+    Сохраняет PNG-графики распределений по указанным колонкам.
+    - Числовые: гистограмма
+    - Даты/Period: столбчатая диаграмма по периодам
+    - Категориальные/строки: топ-N категорий (+ 'Другое')
+    Возвращает список путей к созданным файлам.
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    cols = columns or list(df.columns)
+    saved: list[str] = []
+
+    for col in cols:
+        if col not in df.columns:
+            continue
+        s = df[col].dropna()
+
+        # Period → str, чтобы корректно строить
+        if pd.api.types.is_period_dtype(s):
+            s = s.astype(str)
+
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        ax.set_title(f"Распределение: {col}")
+
+        if pd.api.types.is_numeric_dtype(s):
+            ax.hist(s, bins=30, color="#4C78A8", edgecolor="white")
+            ax.set_ylabel("Количество")
+            ax.set_xlabel(col)
+        elif pd.api.types.is_datetime64_any_dtype(s):
+            counts = s.dt.to_period("M").astype(str).value_counts().sort_index()
+            counts.plot(kind="bar", color="#72B7B2", ax=ax)
+            ax.set_ylabel("Количество")
+            ax.set_xlabel("Период (месяц)")
+        else:
+            vc = s.astype(str).value_counts()
+            if len(vc) > max_categories:
+                top = vc.head(max_categories)
+                other = vc.iloc[max_categories:].sum()
+                if other > 0:
+                    top.loc["Другое"] = other
+                vc = top
+            vc = vc.sort_values(ascending=False)
+            vc.plot(kind="bar", color="#F58518", ax=ax)
+            ax.set_ylabel("Количество")
+            ax.set_xlabel("Категории")
+            total = float(s.shape[0])
+            for p in ax.patches:
+                h = p.get_height()
+                if h > 0:
+                    ax.annotate(f"{h/total:.1%}", (p.get_x() + p.get_width()/2, h),
+                                ha="center", va="bottom", fontsize=8)
+
+        plt.tight_layout()
+        out = str(Path(output_dir) / f"dist_{_sanitize_filename(col)}.png")
+        fig.savefig(out, dpi=150)
+        plt.close(fig)
+        saved.append(out)
+
+    return saved
+
+
+from matplotlib.ticker import MaxNLocator
+
+def visualize_k_group_sizes(
+    df: pd.DataFrame,
+    quasi_identifiers: list[str],
+    output_path: str = "files/plots/k_distribution.png",
+    top_n: int = 25
+) -> str:
+    """
+    Рисует читаемый график распределения размеров групп (k).
+    - Горизонтальные столбцы (не накладываются подписи)
+    - Показывает до top_n разных k; остальные агрегируются в «≥K»
+    - Справа от каждого бара — доля строк датасета, попавших в группы данного k
+    """
+    Path(Path(output_path).parent).mkdir(parents=True, exist_ok=True)
+
+    group_sizes = df.groupby(quasi_identifiers, observed=True).size()
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+
+    if group_sizes.empty:
+        ax.text(0.5, 0.5, "Нет данных для построения", ha="center", va="center")
+        plt.tight_layout()
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        return output_path
+
+    # index=k, value=кол-во групп размером k
+    vc = group_sizes.value_counts().sort_index()
+    dist = pd.DataFrame({"k": vc.index.astype(int), "groups": vc.values})
+    dist["records"] = dist["k"] * dist["groups"]
+    total_rows = max(len(df), 1)
+    dist["share"] = dist["records"] / total_rows
+
+    # Оставляем первые (наименьшие) k, остальное агрегируем
+    dist = dist.sort_values("k")
+    if len(dist) > top_n:
+        head = dist.head(top_n - 1).copy()
+        tail = dist.iloc[top_n - 1:]
+        agg = pd.DataFrame({
+            "k": [None],
+            "groups": [int(tail["groups"].sum())],
+            "records": [int(tail["records"].sum())],
+            "share": [float(tail["share"].sum())],
+        })
+        head["k_label"] = head["k"].astype(str)
+        agg["k_label"] = f"≥{int(tail['k'].min())}"
+        plot_df = pd.concat([head, agg], ignore_index=True)
+    else:
+        plot_df = dist.copy()
+        plot_df["k_label"] = plot_df["k"].astype(str)
+
+    # Горизонтальная диаграмма
+    fig_h = max(4.5, 0.35 * len(plot_df) + 1.0)  # динамическая высота под число категорий
+    plt.close(fig)
+    fig, ax = plt.subplots(figsize=(9, fig_h))
+    bars = ax.barh(plot_df["k_label"], plot_df["groups"], color="#E45756")
+
+    ax.set_title("Распределение размеров групп (k)")
+    ax.set_xlabel("Количество групп")
+    ax.set_ylabel("Размер группы k")
+    ax.invert_yaxis()  # маленькие k сверху
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(axis="x", linestyle=":", alpha=0.4)
+
+    # Подписи долей справа от столбцов
+    max_groups = plot_df["groups"].max() if len(plot_df) else 1
+    x_offset = max_groups * 0.02 + 0.5
+    for rect, share in zip(bars, plot_df["share"].tolist()):
+        y = rect.get_y() + rect.get_height() / 2
+        x = rect.get_width() + x_offset
+        ax.text(x, y, f"{share:.1%}", va="center", ha="left", fontsize=9)
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
