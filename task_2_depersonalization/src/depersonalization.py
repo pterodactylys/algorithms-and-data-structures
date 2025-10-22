@@ -534,19 +534,6 @@ def decompose_bank_card(df: pd.DataFrame, card_column: str, element: str) -> pd.
         df = delete_columns(df, card_column)
     return df
 
-def decompose_phone_numbers(df: pd.DataFrame, phone_column: str, element: str) -> pd.DataFrame:
-    df = df.copy()
-    if element == "Код страны":
-        df['Код страны'] = df[phone_column].str[:2]
-        df = delete_columns(df, phone_column)
-    elif element == "Мобильный оператор":
-        df['Мобильный оператор'] = df[phone_column].str[2:5]
-        df = delete_columns(df, phone_column)
-    elif element == "Номер":
-        df['Номер'] = df[phone_column].str[5:]
-        df = delete_columns(df, phone_column)
-    return df
-
 
 def generalize_doctors_strong(df: pd.DataFrame, doctor_column: str) -> pd.DataFrame:
     """
@@ -578,9 +565,11 @@ def generalize_doctors_strong(df: pd.DataFrame, doctor_column: str) -> pd.DataFr
 
     df = df.copy()
     df[doctor_column] = df[doctor_column].map(doctor_to_group).fillna('Не определено')
+    df['Симптомы'] = df['Врач']
+    df['Анализы'] = df['Врач']
+    df['Медицинская информация'] = df['Врач']
+    delete_columns(df, 'Врач')
     return df
-
-
 
 
 def categorize_costs_quantile(df, column_name, num_bins):
@@ -593,17 +582,11 @@ def categorize_costs_quantile(df, column_name, num_bins):
     :param num_bins: количество диапазонов
     :return: DataFrame с обновленным столбцом
     """
-    # Разбиваем на квантильные диапазоны
     bins = pd.qcut(df[column_name], q=num_bins)
-    
-    # Формируем читаемые подписи для диапазонов
     labels = [f"{int(interval.left)}-{int(interval.right)}" for interval in bins.cat.categories]
-    
-    # Заменяем столбец на новый с подписями
     df[column_name] = pd.qcut(df[column_name], q=num_bins, labels=labels)
     
     return df
-
 
 
 def combine_fio_to_uid(df: pd.DataFrame, surname_col: str, name_col: str, patronymic_col: str, new_col: str = "UID") -> pd.DataFrame:
@@ -620,11 +603,10 @@ def combine_fio_to_uid(df: pd.DataFrame, surname_col: str, name_col: str, patron
     
     def hash_fio(row):
         fio_str = f"{row[surname_col]} {row[name_col]} {row[patronymic_col]}"
-        return hashlib.md5(fio_str.encode('utf-8')).hexdigest()  # MD5 хеш, можно заменить на SHA256
+        return hashlib.md5(fio_str.encode('utf-8')).hexdigest()
     
     df[new_col] = df.apply(hash_fio, axis=1)
     
-    # Удаляем исходные столбцы
     df = df.drop(columns=[surname_col, name_col, patronymic_col])
     
     return df
@@ -636,11 +618,11 @@ def generalize_snils(df: pd.DataFrame, snils_column: str) -> pd.DataFrame:
     return df
 
 
-
 def mask_passport_data(df: pd.DataFrame, passport_column: str, length: int) -> pd.DataFrame:
     df = df.copy()
     df[passport_column] = df[passport_column].apply(lambda x: x[:length] + '***' if len(x) > length else x)
     return df
+
 
 def decompose_dates(df: pd.DataFrame, date_column: str, element: str) -> pd.DataFrame:
     # example: '2020-02-09T12:30+03:00' -> '2020', '2020-02', '2020-02-09'
@@ -656,6 +638,7 @@ def decompose_dates(df: pd.DataFrame, date_column: str, element: str) -> pd.Data
         df[date_column] = df[date_column].dt.to_period("D")
     else:
         raise ValueError(f"Неизвестный элемент: {element}")
+    df["Дата готовности анализов"] = df[date_column]
     return df
 
 def save_current_state(data: pd.DataFrame, file_path: str):
@@ -702,20 +685,17 @@ def calculate_k_anonymity_from_df(df: pd.DataFrame, quasi_identifiers: list[str]
     :param quasi_identifiers: список квази-идентификаторов
     :return: минимальный размер группы (k-анонимность)
     """
-    # Проверка наличия всех столбцов
     missing = [col for col in quasi_identifiers if col not in df.columns]
     if missing:
         raise ValueError(f"Отсутствуют колонки: {missing}")
 
     if df.empty:
-        return 0  # пустой DataFrame → k=0
+        return 0
 
-    # Приводим категориальные столбцы к строковому типу, чтобы не было "пустых категорий"
     for col in quasi_identifiers:
         if pd.api.types.is_categorical_dtype(df[col]):
             df[col] = df[col].astype(str)
 
-    # Группировка по квази-идентификаторам, учитываем только реально встречающиеся комбинации
     group_sizes = df.groupby(quasi_identifiers, observed=True).size()
 
     if group_sizes.empty:
@@ -728,7 +708,6 @@ def calculate_k_anonymity_from_df_debug(df: pd.DataFrame, quasi_identifiers: lis
     """
     Рассчитывает k-анонимность с выводом диагностики.
     """
-    # Проверяем наличие столбцов
     missing = [col for col in quasi_identifiers if col not in df.columns]
     if missing:
         raise ValueError(f"Отсутствуют колонки: {missing}")
@@ -737,14 +716,11 @@ def calculate_k_anonymity_from_df_debug(df: pd.DataFrame, quasi_identifiers: lis
         print("DataFrame пустой")
         return 0
     
-    # Показываем первые несколько строк для диагностики
     print("Первые 5 строк DataFrame:")
     print(df.head())
     
-    # Группировка
     group_sizes = df.groupby(quasi_identifiers, observed=True).size()
     
-    # Показываем все группы и их размеры
     print("\nРазмеры групп по квази-идентификаторам:")
     print(group_sizes)
     
@@ -775,18 +751,14 @@ def worst_k_anonymity_groups(df: pd.DataFrame, quasi_identifiers: list[str], n: 
     if df.empty:
         return pd.DataFrame(columns=quasi_identifiers + ["group_size"])
 
-    # Приводим категориальные к строке
     for col in quasi_identifiers:
         if pd.api.types.is_categorical_dtype(df[col]):
             df[col] = df[col].astype(str)
 
-    # Группировка по квази-идентификаторам
     group_sizes = df.groupby(quasi_identifiers, observed=True).size().reset_index(name="group_size")
 
-    # Сортируем по размеру группы, по возрастанию
     group_sizes_sorted = group_sizes.sort_values(by="group_size", ascending=True)
 
-    # Берем n худших групп
     return group_sizes_sorted.head(n)
 
 def copy_and_save_current_state(data: pd.DataFrame) -> pd.DataFrame:
@@ -794,7 +766,6 @@ def copy_and_save_current_state(data: pd.DataFrame) -> pd.DataFrame:
     save_current_state(copy, "files/dataset_5k_copy.xlsx")
     return copy
 
-# ...existing code...
 
 def suppress_worst_k_groups_by_rows(
     df: pd.DataFrame,
@@ -892,9 +863,6 @@ def suppress_worst_k_groups_by_rows(
 
 def delete_columns(data: pd.DataFrame, columns: list) -> pd.DataFrame:
     return data.drop(columns=columns, axis=1)
-
-
-
 
 
 from pathlib import Path
