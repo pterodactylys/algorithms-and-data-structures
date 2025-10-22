@@ -563,6 +563,7 @@ def generalize_doctors_strong(df: pd.DataFrame, doctor_column: str) -> pd.DataFr
         'Нефролог': 'Другое'
     }
 
+
     df = df.copy()
     df[doctor_column] = df[doctor_column].map(doctor_to_group).fillna('Не определено')
     df['Симптомы'] = df['Врач']

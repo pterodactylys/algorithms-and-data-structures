@@ -814,7 +814,7 @@ class AnonymizerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Обезличивание медицинских данных (Tkinter)")
-        self.root.geometry("1180x720")
+        self.root.geometry("1280x1110")
 
         self.df: pd.DataFrame | None = None
         self.original_df: pd.DataFrame | None = None
