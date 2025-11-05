@@ -151,8 +151,8 @@ class HashcatGUI:
 
         tk.Button(root, text="Вычислить соль", command=self.calculate_salt,
                   bg="#2196F3", fg="white", width=25).pack(pady=5)
-        tk.Button(root, text="Вычислить сырые номера", command=self.calculate_raw_numbers,
-                  bg="#2196F3", fg="white", width=25).pack(pady=5)
+        tk.Button(root, text="Вычислить зашифрованные номера", command=self.calculate_raw_numbers,
+                  bg="#2196F3", fg="white", width=30).pack(pady=5)
         
         # Новая кнопка для тестирования хешей
         tk.Button(root, text="Тест скорости хешей", command=self.benchmark_hashes,
