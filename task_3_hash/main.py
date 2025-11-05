@@ -45,6 +45,18 @@ def run_hashcat(hashes_file):
     os.system(f"hashcat -a 3 -m 0 -o output.txt {hashes_file} ?d?d?d?d?d?d?d?d?d?d?d --potfile-disable")
 
 
+def calculate_raw_numbers(salt, hashcat_output):
+    with open(hashcat_output, 'r') as f:
+        hashcat_output = f.readlines()
+    hashcat_output = [line.strip().split(":") for line in hashcat_output]
+    raw_numbers = []
+    for i in range(len(hashcat_output)):
+        raw_numbers.append(int(hashcat_output[i][1]) - salt)
+    with open("raw_numbers.txt", 'w') as f:
+        for number in raw_numbers:
+            f.write(f"{number}\n")
+
+
 def main():
     excel_file = 'datass.xlsx'
     hashes_file = 'hashes.txt'
@@ -78,6 +90,8 @@ class HashcatGUI:
                   bg="#4CAF50", fg="white", width=25).pack(pady=5)
 
         tk.Button(root, text="Вычислить соль", command=self.calculate_salt,
+                  bg="#2196F3", fg="white", width=25).pack(pady=5)
+        tk.Button(root, text="Вычислить сырые номера", command=self.calculate_raw_numbers,
                   bg="#2196F3", fg="white", width=25).pack(pady=5)
 
         tk.Label(root, text="Вывод:", font=("Arial", 11, "bold")).pack(pady=(10, 0))
@@ -173,8 +187,22 @@ class HashcatGUI:
             self.log(f"Ошибка: {e}")
             messagebox.showerror("Ошибка", str(e))
 
+    def calculate_raw_numbers(self):
+
+        if not self.known_numbers:
+            messagebox.showwarning("Ошибка", "Сначала вычислите соль.")
+            return
+
+        salt = compute_salt(salt_phones, self.known_numbers)
+        calculate_raw_numbers(salt, self.hashcat_output)
+
+        self.set_status("Готово")
+        self.log(f"Номера расшифрованы и сохранены в файл raw_numbers.txt")
+        messagebox.showinfo("Готово", f"Номера расшифрованы и сохранены в файл raw_numbers.txt")
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = HashcatGUI(root)
     root.mainloop()
+
+# 9054775687
