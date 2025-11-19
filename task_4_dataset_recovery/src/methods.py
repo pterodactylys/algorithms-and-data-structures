@@ -1,66 +1,191 @@
-from statistics import LinearRegression
-import os
 import pandas as pd
+import os
 import numpy as np
-from sklearn.linear_model import LinearRegression
-
-
-def open_from_excel(file_path: str) -> pd.DataFrame:
-    df = pd.read_excel(file_path)
-    return df
+import re
 
 def save_current_state(data: pd.DataFrame, file_path: str):
     if os.path.exists(file_path):
         os.remove(file_path)
+    # Minimal save (engine selection left to pandas)
+    data.to_excel(file_path, index=False)
 
-    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        data.to_excel(writer, index=False)
-        worksheet = writer.sheets['Sheet1']
-        for column in worksheet.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
+def open_from_excel(file_path: str) -> pd.DataFrame:
+    if os.path.exists(file_path):
+        return pd.read_excel(file_path)
+    else:
+        return pd.DataFrame()
+    
+def fill_numeric_missing_with_mean(df: pd.DataFrame, columns=None, exclude_columns=None) -> pd.DataFrame:
+    result_df = df.copy()
+    if columns is None:
+        columns_to_process = result_df.select_dtypes(include=[np.number]).columns.tolist()
+    else:
+        columns_to_process = list(columns)
+    if exclude_columns is not None:
+        columns_to_process = [c for c in columns_to_process if c not in exclude_columns]
+    for c in columns_to_process:
+        if c in result_df.columns and result_df[c].isnull().any():
+            result_df[c] = result_df[c].fillna(result_df[c].mean())
+    return result_df
 
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except Exception:
-                    pass
+def fill_missing_with_mean_datetime(df: pd.DataFrame, datetime_columns=None, exclude_columns=None, method: str = 'mean') -> pd.DataFrame:
+    result_df = df.copy()
+    if datetime_columns is None:
+        # Используем типы данных DataFrame
+        datetime_columns = [c for c in result_df.columns if np.issubdtype(result_df[c].dtype, np.datetime64)]
+    else:
+        datetime_columns = list(datetime_columns)
+    if exclude_columns is not None:
+        datetime_columns = [c for c in datetime_columns if c not in exclude_columns]
+    for c in datetime_columns:
+        if c in result_df.columns:
+            series = pd.to_datetime(result_df[c], errors='coerce')
+            if series.isnull().any():
+                valid = series.dropna()
+                if not valid.empty:
+                    if method == 'median':
+                        fill_value = valid.median()
+                    else:
+                        fill_value = valid.mean()
+                    series = series.fillna(fill_value)
+                    result_df[c] = series
+    return result_df
 
-            adjusted_width = (max_length + 2) * 1.1
-            worksheet.column_dimensions[column_letter].width = adjusted_width
-            
 
-def relative_error(true, restored):
-    mask = ~np.isnan(true)
-    return np.mean(np.abs((true[mask] - restored[mask]) / true[mask]))
+def fill_missing_with_mode_card(df: pd.DataFrame, card_columns=None, exclude_columns=None, method: str = 'mode') -> pd.DataFrame:
+    result_df = df.copy()
+    def is_card(value):
+        if pd.isna(value):
+            return False
+        cleaned = str(value).replace(' ', '')
+        return cleaned.isdigit() and len(cleaned) == 16
+    if card_columns is None:
+        card_columns = []
+        for col in result_df.columns:
+            sample = result_df[col].dropna().head(10)
+            if not sample.empty and sum(is_card(v) for v in sample) >= max(1, len(sample) // 2):
+                card_columns.append(col)
+    else:
+        card_columns = list(card_columns)
+    if exclude_columns is not None:
+        card_columns = [c for c in card_columns if c not in exclude_columns]
+    for col in card_columns:
+        if col in result_df.columns and result_df[col].isnull().any():
+            valid = result_df[col].dropna()
+            if not valid.empty:
+                mode_vals = valid.mode()
+                fill_value = mode_vals.iloc[0] if not mode_vals.empty else valid.iloc[0]
+                result_df[col] = result_df[col].fillna(fill_value)
+    return result_df
 
 
-def delete_blocks(data, block_size=(3, 3), loss_percent=0.1):
-    df = data.copy()
-    n, m = df.shape
-    total_cells = n * m
-    target_loss = int(total_cells * loss_percent)
-    removed = 0
+def fill_missing_with_mode_passport(df: pd.DataFrame, passport_columns=None, exclude_columns=None) -> pd.DataFrame:
+    result_df = df.copy()
 
-    while removed < target_loss:
-        i = np.random.randint(0, n - block_size[0])
-        j = np.random.randint(0, m - block_size[1])
-        df.iloc[i:i+block_size[0], j:j+block_size[1]] = np.nan
-        removed += block_size[0] * block_size[1]
-    return df
+    def is_passport(value: object) -> bool:
+        if pd.isna(value):
+            return False
+        s = str(value).strip()
+        return bool(re.match(r'^\d{2}\s?\d{2}\s?\d{5,7}$', s))
+
+    def normalize_passport(value: object) -> object:
+        if pd.isna(value):
+            return value
+        digits = ''.join(ch for ch in str(value) if ch.isdigit())
+        if len(digits) < 10:
+            return value  # Не трогаем странные значения
+        series1 = digits[:2]
+        series2 = digits[2:4]
+        number = digits[4:10]  # первые 6 цифр номера
+        return f"{series1} {series2} {number}"
+
+    if passport_columns is None:
+        passport_columns = []
+        for col in result_df.columns:
+            sample = result_df[col].dropna().head(10)
+            if not sample.empty:
+                count = sum(is_passport(v) for v in sample)
+                if count >= max(1, len(sample) // 2):
+                    passport_columns.append(col)
+    else:
+        passport_columns = list(passport_columns)
+    if exclude_columns is not None:
+        passport_columns = [c for c in passport_columns if c not in exclude_columns]
+
+    for col in passport_columns:
+        if col not in result_df.columns:
+            continue
+        # Нормализация существующих значений
+        result_df[col] = result_df[col].apply(normalize_passport)
+        if result_df[col].isnull().any():
+            valid = result_df[col].dropna()
+            if not valid.empty:
+                mode_vals = valid.mode()
+                fill_value = mode_vals.iloc[0] if not mode_vals.empty else valid.iloc[0]
+                result_df[col] = result_df[col].fillna(fill_value)
+    return result_df
+
+
+def fill_missing_with_mode_snils(df: pd.DataFrame, snils_columns=None, exclude_columns=None) -> pd.DataFrame:
+    result_df = df.copy()
+
+    def is_snils(value: object) -> bool:
+        if pd.isna(value):
+            return False
+        s = str(value).strip()
+        return bool(re.match(r'^\d{3}-\d{3}-\d{3}\s\d{2}$', s))
+
+    def normalize_snils(value: object) -> object:
+        if pd.isna(value):
+            return value
+        digits = ''.join(ch for ch in str(value) if ch.isdigit())
+        if len(digits) != 11:  # 9 + 2 контрольные
+            return value
+        return f"{digits[0:3]}-{digits[3:6]}-{digits[6:9]} {digits[9:11]}"
+
+    if snils_columns is None:
+        snils_columns = []
+        for col in result_df.columns:
+            sample = result_df[col].dropna().head(10)
+            if not sample.empty:
+                count = sum(is_snils(v) for v in sample)
+                if count >= max(1, len(sample) // 2):
+                    snils_columns.append(col)
+    else:
+        snils_columns = list(snils_columns)
+    if exclude_columns is not None:
+        snils_columns = [c for c in snils_columns if c not in exclude_columns]
+
+    for col in snils_columns:
+        if col not in result_df.columns:
+            continue
+        result_df[col] = result_df[col].apply(normalize_snils)
+        if result_df[col].isnull().any():
+            valid = result_df[col].dropna()
+            if not valid.empty:
+                mode_vals = valid.mode()
+                fill_value = mode_vals.iloc[0] if not mode_vals.empty else valid.iloc[0]
+                result_df[col] = result_df[col].fillna(fill_value)
+    return result_df
+
+
+def fill_categorical_missing_with_mode(df: pd.DataFrame, columns: list) -> pd.DataFrame:
+    result_df = df.copy()
+    for col in columns:
+        if col in result_df.columns and result_df[col].isnull().any():
+            # Убираем пустые строки и NaN, затем находим моду
+            valid_values = result_df[col].dropna()
+            if not valid_values.empty:
+                mode_value = valid_values.mode()
+                if not mode_value.empty:
+                    fill_value = mode_value.iloc[0]
+                    result_df[col] = result_df[col].fillna(fill_value)
+    return result_df
+
 
 
 
 def delete_blocks_random(df, loss_percent=0.1, block_sizes=[(2,2), (3,2), (3,3), (4,2)]):
-    """
-    Удаляет данные блоками случайных размеров, пока не достигнут нужный процент пропусков.
-
-    Параметры:
-      df — исходный DataFrame
-      loss_percent — доля удаляемых данных (например, 0.1 = 10%)
-      block_sizes — возможные размеры блоков (список кортежей)
-    """
     data = df.copy()
     n_rows, n_cols = data.shape
     total_cells = n_rows * n_cols
@@ -81,67 +206,3 @@ def delete_blocks_random(df, loss_percent=0.1, block_sizes=[(2,2), (3,2), (3,3),
         missing += new_missing
 
     return data
-
-
-
-def mean_imputation(data: pd.DataFrame) -> pd.DataFrame:
-    df = data.copy()
-    for column in df.columns:
-        if df[column].isnull().any():
-            if pd.api.types.is_numeric_dtype(df[column]):
-                mean_value = df[column].mean()
-                df[column].fillna(mean_value, inplace=True)
-            else:
-                mode = df[column].mode(dropna=True)
-                if not mode.empty:
-                    df[column].fillna(mode.iloc[0], inplace=True)
-                else:
-                    df[column].fillna("", inplace=True)
-    return df
-
-
-def linear_regression_imputation(data: pd.DataFrame) -> pd.DataFrame:
-    df = data.copy()
-
-    for column in df.columns:
-        if not df[column].isnull().any():
-            continue
-
-        if not pd.api.types.is_numeric_dtype(df[column]):
-            mode = df[column].mode(dropna=True)
-            if not mode.empty:
-                df.loc[df[column].isnull(), column] = mode.iloc[0]
-            continue
-
-        X_all = df.drop(columns=[column])
-        y = df[column]
-
-        X_train = X_all.loc[y.notnull()].copy()
-        y_train = y.loc[y.notnull()].astype(float).copy()
-        X_pred = X_all.loc[y.isnull()].copy()
-
-        if X_train.empty or X_pred.empty:
-            continue
-
-        X_combined = pd.concat([X_train, X_pred], axis=0)
-        X_dummies = pd.get_dummies(X_combined, dummy_na=False)
-        X_train_enc = X_dummies.iloc[: len(X_train), :].astype(float)
-        X_pred_enc = X_dummies.iloc[len(X_train) :, :].astype(float)
-
-        if X_train_enc.shape[1] == 0:
-            df.loc[y.isnull(), column] = y_train.mean()
-            continue
-
-        try:
-            model = LinearRegression()
-            model.fit(X_train_enc, y_train)
-            preds = model.predict(X_pred_enc)
-        except Exception:
-            preds = np.full(shape=(len(X_pred_enc),), fill_value=y_train.mean(), dtype=float)
-
-        if pd.api.types.is_integer_dtype(data[column]) or (np.all(np.mod(y_train.dropna(), 1) == 0)):
-            preds = np.rint(preds).astype(int)
-
-        df.loc[y.isnull(), column] = preds
-
-    return df
