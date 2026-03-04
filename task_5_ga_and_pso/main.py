@@ -11,6 +11,7 @@ class Config:
     ga_generations: int = 250
     ga_tournament_k: int = 5
     ga_mutation_probability: float = 0.2
+    ga_mutation_sigma: float = 0.25
     ga_crossover_probability: float = 0.7
 
 
@@ -23,18 +24,26 @@ def selection(pop, fit, k, random_generator):
     best = idx[np.argmin(fit[idx])]
     return pop[best].copy()
 
-def arithmetic_crossover(p1, p2, randon_gen):
-    alpha = randon_gen.uniform()
-    return p1 * alpha + p2 * (1 - alpha)
+def arithmetic_crossover(p1, p2, random_gen):
+    alpha = random_gen.uniform()
+    c1 = p1 * alpha + p2 * (1 - alpha)
+    c2 = p2 * alpha + p1 * (1 - alpha)
+    return c1, c2
 
-def mutation(ind, prob, sigma, x_min, x_max, random_generator):
-    mutant = ind.copy()
-    mask = random_generator.uniform(size = len(ind)) < prob
-    noise = random_generator.noise(0, sigma, size=len(ind))
-    mutant[mask] += noise[mask]
-    return np.clip(mutant, x_min, x_max)
+def mutation(
+    child: np.ndarray,
+    mutation_prob: float,
+    sigma: float,
+    x_min: float,
+    x_max: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    mask = rng.random(child.shape) < mutation_prob
+    noise = rng.normal(0.0, sigma, size=child.shape)
+    child = child + mask * noise
+    return np.clip(child, x_min, x_max)
 
-def run_ga(cfg, random_genertor):
+def run_ga(cfg, random_generator):
     pop = random_generator.uniform(cfg.x_min, cfg.x_max, size=(cfg.ga_pop_size, cfg.n_dim))
 
     best_fit_history = []
@@ -59,7 +68,44 @@ def run_ga(cfg, random_genertor):
             p1 = selection(pop, fit, cfg.ga_tournament_k, random_generator)
             p2 = selection(pop, fit, cfg.ga_tournament_k, random_generator)
             
+            if random_generator.random() < cfg.ga_crossover_probability:
+                c1, c2 = arithmetic_crossover(p1, p2, random_generator)
+            else:
+                c1, c2 = p1.copy(), p2.copy()
+
+            c1 = mutation(c1, cfg.ga_mutation_probability, cfg.ga_mutation_sigma, cfg.x_min, cfg.x_max, random_generator)
+            c2 = mutation(c2, cfg.ga_mutation_probability, cfg.ga_mutation_sigma, cfg.x_min, cfg.x_max, random_generator)
             
+            new_pop.append(c1)
+            if len(new_pop) < cfg.ga_pop_size:
+                new_pop.append(c2)
+            
+        pop = np.array(new_pop, dtype=float)
+
+    final_fit = function(pop)
+    best_idx = np.argmin(final_fit)
+
+    return {
+        "best_x": pop[best_idx].copy(),
+        "best_fit": float(final_fit[best_idx]),
+        "best_fit_history": np.array(best_fit_history),
+        "mean_fit_history": np.array(mean_fit_history),
+        "best_x_history": np.array(best_x_history),
+    }
 
 def main():
+    cfg = Config()
     random_generator = np.random.default_rng(cfg.seed)
+    
+    ga_res = run_ga(cfg, random_generator)
+
+    x_reference = np.full(cfg.n_dim, -2.903534)
+    f_refetrence = float(function(x_reference))
+
+    print("Genetic algorithm: ")
+    print("best x:", ga_res["best_x"])
+    print("best fit:", ga_res["best_fit"])
+    print("accuracy: ", abs(ga_res["best_fit"] - f_refetrence))
+
+if __name__ == "__main__":
+    main()
