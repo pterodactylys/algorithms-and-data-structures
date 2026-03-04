@@ -3,16 +3,16 @@ import numpy as np
 
 class Config:
     n_dim: int = 2
-    x_min: float = -5.0
-    x_max: float = 5.0
-    seed: int = 100
+    x_min: float = -10.0
+    x_max: float = 10.0
+    seed: int = 50
 
-    ga_pop_size: int = 100
-    ga_generations: int = 250
-    ga_tournament_k: int = 5
-    ga_mutation_probability: float = 0.2
+    ga_pop_size: int = 1000
+    ga_generations: int = 200
+    ga_tournament_k: int = 2
+    ga_mutation_probability: float = 0.25
     ga_mutation_sigma: float = 0.25
-    ga_crossover_probability: float = 0.7
+    ga_crossover_probability: float = 0.8
 
 
 def function(x: np.ndarray) -> np.ndarray:
@@ -56,6 +56,7 @@ def run_ga(cfg, random_generator):
         best_idx = np.argmin(fit)
         elite = pop[best_idx].copy()
         elite_fit = fit[best_idx]
+        # print(elite_fit)
 
         best_fit_history.append(elite_fit)
         mean_fit_history.append(np.mean(fit))
