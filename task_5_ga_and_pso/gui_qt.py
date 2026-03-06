@@ -102,6 +102,14 @@ def launch_gui() -> None:
             self.seed.setRange(0, 10_000_000)
             self.seed.setValue(50)
 
+            self.runs_count = QSpinBox()
+            self.runs_count.setRange(1, 10_000)
+            self.runs_count.setValue(1)
+
+            self.seed_step = QSpinBox()
+            self.seed_step.setRange(1, 1_000_000)
+            self.seed_step.setValue(1)
+
             self.n_dim = QSpinBox()
             self.n_dim.setRange(1, 50)
             self.n_dim.setValue(2)
@@ -117,6 +125,8 @@ def launch_gui() -> None:
             self.x_max.setValue(10.0)
 
             form.addRow("seed", self.seed)
+            form.addRow("runs_count", self.runs_count)
+            form.addRow("seed_step", self.seed_step)
             form.addRow("n_dim", self.n_dim)
             form.addRow("x_min", self.x_min)
             form.addRow("x_max", self.x_max)
@@ -185,17 +195,17 @@ def launch_gui() -> None:
             self.pso_w = QDoubleSpinBox()
             self.pso_w.setRange(0.0, 5.0)
             self.pso_w.setSingleStep(0.01)
-            self.pso_w.setValue(0.72)
+            self.pso_w.setValue(0.8)
 
             self.pso_c1 = QDoubleSpinBox()
             self.pso_c1.setRange(0.0, 10.0)
             self.pso_c1.setSingleStep(0.01)
-            self.pso_c1.setValue(1.49)
+            self.pso_c1.setValue(1.5)
 
             self.pso_c2 = QDoubleSpinBox()
             self.pso_c2.setRange(0.0, 10.0)
             self.pso_c2.setSingleStep(0.01)
-            self.pso_c2.setValue(1.49)
+            self.pso_c2.setValue(1.5)
 
             self.pso_vmax_ratio = QDoubleSpinBox()
             self.pso_vmax_ratio.setRange(0.0, 5.0)
@@ -248,7 +258,7 @@ def launch_gui() -> None:
             row.addStretch(1)
             return row
 
-        def _read_configs(self) -> tuple[GAConfig, PSOConfig, int]:
+        def _read_configs(self) -> tuple[GAConfig, PSOConfig, int, int, int]:
             x_min = float(self.x_min.value())
             x_max = float(self.x_max.value())
             if x_min >= x_max:
@@ -256,6 +266,8 @@ def launch_gui() -> None:
 
             n_dim = int(self.n_dim.value())
             seed = int(self.seed.value())
+            runs_count = int(self.runs_count.value())
+            seed_step = int(self.seed_step.value())
 
             ga_cfg = GAConfig(
                 n_dim=n_dim,
@@ -283,22 +295,39 @@ def launch_gui() -> None:
                 vmax_ratio=float(self.pso_vmax_ratio.value()),
                 velocity_clamping=bool(self.pso_velocity_clamping.isChecked()),
             )
-            return ga_cfg, pso_cfg, seed
+            return ga_cfg, pso_cfg, seed, runs_count, seed_step
 
         def run_algorithms(self) -> None:
             try:
-                ga_cfg, pso_cfg, seed = self._read_configs()
+                ga_cfg, pso_cfg, seed, runs_count, seed_step = self._read_configs()
                 QApplication.setOverrideCursor(Qt.WaitCursor)
 
-                rng = np.random.default_rng(seed)
-                ga_t0 = time.perf_counter()
-                ga_res = run_ga(ga_cfg, rng)
-                ga_time_s = time.perf_counter() - ga_t0
+                ga_fits = []
+                pso_fits = []
+                ga_times = []
+                pso_times = []
 
-                pso_t0 = time.perf_counter()
-                pso_res = run_pso(pso_cfg, rng)
-                pso_time_s = time.perf_counter() - pso_t0
+                ga_res = None
+                pso_res = None
 
+                for run_idx in range(runs_count):
+                    run_seed = seed + run_idx * seed_step
+                    rng = np.random.default_rng(run_seed)
+
+                    ga_t0 = time.perf_counter()
+                    ga_res = run_ga(ga_cfg, rng)
+                    ga_time_s = time.perf_counter() - ga_t0
+
+                    pso_t0 = time.perf_counter()
+                    pso_res = run_pso(pso_cfg, rng)
+                    pso_time_s = time.perf_counter() - pso_t0
+
+                    ga_fits.append(float(ga_res["best_fit"]))
+                    pso_fits.append(float(pso_res["best_fit"]))
+                    ga_times.append(float(ga_time_s))
+                    pso_times.append(float(pso_time_s))
+
+                assert ga_res is not None and pso_res is not None
                 self.ga_cfg = ga_cfg
                 self.pso_cfg = pso_cfg
                 self.ga_res = ga_res
@@ -306,19 +335,46 @@ def launch_gui() -> None:
 
                 x_reference = np.full(ga_cfg.n_dim, -2.903534)
                 f_reference = float(objective(x_reference))
+                ga_deltas = np.abs(np.asarray(ga_fits) - f_reference)
+                pso_deltas = np.abs(np.asarray(pso_fits) - f_reference)
 
                 text = []
-                text.append("Genetic algorithm:")
-                text.append(f"best x: {ga_res['best_x']}")
-                text.append(f"best fit: {ga_res['best_fit']}")
-                text.append(f"accuracy: {abs(ga_res['best_fit'] - f_reference)}")
-                text.append(f"time (s): {ga_time_s:.6f}")
+                text.append(f"Runs: {runs_count} | seed_start={seed} | seed_step={seed_step}")
                 text.append("")
+
+                text.append("Genetic algorithm:")
+                text.append(f"last run best x: {ga_res['best_x']}")
+                text.append(f"last run best fit: {ga_res['best_fit']}")
+                text.append(f"last run delta: {ga_deltas[-1]:.12f}")
+                text.append(f"last run time (s): {ga_times[-1]:.6f}")
+                text.append(f"best delta over runs: {np.min(ga_deltas):.12f}")
+                text.append(f"worst delta over runs: {np.max(ga_deltas):.12f}")
+                text.append(f"mean delta over runs: {np.mean(ga_deltas):.12f}")
+                text.append(f"std delta over runs: {np.std(ga_deltas):.12f}")
+                text.append(f"mean time (s): {np.mean(ga_times):.6f}")
+                text.append("")
+
                 text.append("Particle swarm optimization:")
-                text.append(f"best x: {pso_res['best_x']}")
-                text.append(f"best fit: {pso_res['best_fit']}")
-                text.append(f"accuracy: {abs(pso_res['best_fit'] - f_reference)}")
-                text.append(f"time (s): {pso_time_s:.6f}")
+                text.append(f"last run best x: {pso_res['best_x']}")
+                text.append(f"last run best fit: {pso_res['best_fit']}")
+                text.append(f"last run delta: {pso_deltas[-1]:.12f}")
+                text.append(f"last run time (s): {pso_times[-1]:.6f}")
+                text.append(f"best delta over runs: {np.min(pso_deltas):.12f}")
+                text.append(f"worst delta over runs: {np.max(pso_deltas):.12f}")
+                text.append(f"mean delta over runs: {np.mean(pso_deltas):.12f}")
+                text.append(f"std delta over runs: {np.std(pso_deltas):.12f}")
+                text.append(f"mean time (s): {np.mean(pso_times):.6f}")
+
+                if runs_count > 1:
+                    text.append("")
+                    text.append("Per-run summary:")
+                    for run_idx in range(runs_count):
+                        run_seed = seed + run_idx * seed_step
+                        text.append(
+                            f"run {run_idx + 1}, seed={run_seed}: "
+                            f"GA delta={ga_deltas[run_idx]:.12f}, PSO delta={pso_deltas[run_idx]:.12f}, "
+                            f"GA t={ga_times[run_idx]:.6f}s, PSO t={pso_times[run_idx]:.6f}s"
+                        )
 
                 self.output.setPlainText("\n".join(text))
 
