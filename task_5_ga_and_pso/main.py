@@ -1,4 +1,5 @@
 import argparse
+import time
 
 from ga import GAConfig, objective, run_ga
 from pso import PSOConfig, run_pso
@@ -24,7 +25,9 @@ def run_cli():
     )
     random_generator = np.random.default_rng(seed)
 
+    ga_t0 = time.perf_counter()
     ga_res = run_ga(cfg, random_generator)
+    ga_time_s = time.perf_counter() - ga_t0
 
     pso_cfg = PSOConfig(
         n_dim=cfg.n_dim,
@@ -38,7 +41,9 @@ def run_cli():
         vmax_ratio=0.2,
         velocity_clamping=True,
     )
+    pso_t0 = time.perf_counter()
     pso_res = run_pso(pso_cfg, random_generator)
+    pso_time_s = time.perf_counter() - pso_t0
 
     x_reference = np.full(cfg.n_dim, -2.903534)
     f_reference = float(objective(x_reference))
@@ -47,12 +52,14 @@ def run_cli():
     print("best x:", ga_res["best_x"])
     print("best fit:", ga_res["best_fit"])
     print("accuracy: ", abs(ga_res["best_fit"] - f_reference))
+    print("time (s):", round(ga_time_s, 6))
 
     print()
     print("Particle swarm optimization:")
     print("best x:", pso_res["best_x"])
     print("best fit:", pso_res["best_fit"])
     print("accuracy: ", abs(pso_res["best_fit"] - f_reference))
+    print("time (s):", round(pso_time_s, 6))
 
     plot_ga_pso_convergence(ga_res, pso_res)
     animate_particles_movement(ga_res, pso_res, x_min=cfg.x_min, x_max=cfg.x_max, max_particles=120, interval_ms=70)

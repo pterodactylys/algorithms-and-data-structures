@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import numpy as np
 
 from ga import GAConfig, objective, run_ga
@@ -36,8 +37,9 @@ def launch_gui() -> None:
         def __init__(self) -> None:
             super().__init__()
             self.setWindowTitle("GA + PSO Control Panel")
-            self.resize(1200, 860)
-            self.setMinimumSize(1050, 740)
+            self.resize(1320, 860)
+            self.setMinimumSize(1180, 740)
+            self.setStyleSheet("QGroupBox { font-weight: 600; } QGroupBox::title { font-size: 12px; }")
 
             self.ga_res: dict | None = None
             self.pso_res: dict | None = None
@@ -54,6 +56,8 @@ def launch_gui() -> None:
             ga_box = self._ga_group()
             pso_box = self._pso_group()
             viz_box = self._viz_group()
+            ga_box.setMinimumWidth(470)
+            pso_box.setMinimumWidth(470)
             self._configure_group_box(common_box)
             self._configure_group_box(ga_box)
             self._configure_group_box(pso_box)
@@ -67,13 +71,13 @@ def launch_gui() -> None:
             left_col.addWidget(common_box, stretch=1)
             left_col.addWidget(viz_box, stretch=1)
 
-            right_col = QVBoxLayout()
+            right_col = QHBoxLayout()
             right_col.setSpacing(10)
             right_col.addWidget(ga_box, stretch=1)
             right_col.addWidget(pso_box, stretch=1)
 
-            top_row.addLayout(left_col, stretch=1)
-            top_row.addLayout(right_col, stretch=1)
+            top_row.addLayout(left_col, stretch=2)
+            top_row.addLayout(right_col, stretch=4)
 
             root.addLayout(top_row, stretch=2)
 
@@ -119,7 +123,7 @@ def launch_gui() -> None:
             return box
 
         def _ga_group(self) -> QGroupBox:
-            box = QGroupBox("Genetic Algorithm")
+            box = QGroupBox("Genetic Algorithm (GA)")
             form = QFormLayout(box)
 
             self.ga_pop_size = QSpinBox()
@@ -167,7 +171,7 @@ def launch_gui() -> None:
             return box
 
         def _pso_group(self) -> QGroupBox:
-            box = QGroupBox("Particle Swarm Optimization")
+            box = QGroupBox("Particle Swarm (PSO)")
             form = QFormLayout(box)
 
             self.pso_swarm_size = QSpinBox()
@@ -287,8 +291,13 @@ def launch_gui() -> None:
                 QApplication.setOverrideCursor(Qt.WaitCursor)
 
                 rng = np.random.default_rng(seed)
+                ga_t0 = time.perf_counter()
                 ga_res = run_ga(ga_cfg, rng)
+                ga_time_s = time.perf_counter() - ga_t0
+
+                pso_t0 = time.perf_counter()
                 pso_res = run_pso(pso_cfg, rng)
+                pso_time_s = time.perf_counter() - pso_t0
 
                 self.ga_cfg = ga_cfg
                 self.pso_cfg = pso_cfg
@@ -303,11 +312,13 @@ def launch_gui() -> None:
                 text.append(f"best x: {ga_res['best_x']}")
                 text.append(f"best fit: {ga_res['best_fit']}")
                 text.append(f"accuracy: {abs(ga_res['best_fit'] - f_reference)}")
+                text.append(f"time (s): {ga_time_s:.6f}")
                 text.append("")
                 text.append("Particle swarm optimization:")
                 text.append(f"best x: {pso_res['best_x']}")
                 text.append(f"best fit: {pso_res['best_fit']}")
                 text.append(f"accuracy: {abs(pso_res['best_fit'] - f_reference)}")
+                text.append(f"time (s): {pso_time_s:.6f}")
 
                 self.output.setPlainText("\n".join(text))
 
