@@ -37,6 +37,7 @@ def run_pso(cfg: PSOConfig, random_generator: np.random.Generator):
     best_fit_history = [gbest_fit]
     best_x_history = [gbest_x.copy()]
     mean_fit_history = [float(np.mean(pbest_fit))]
+    swarm_history = [x.copy()]
 
     for q in range(cfg.iterations):
         r1 = random_generator.random(size=(swarm_size, n_dim))
@@ -68,6 +69,7 @@ def run_pso(cfg: PSOConfig, random_generator: np.random.Generator):
         best_fit_history.append(gbest_fit)
         best_x_history.append(gbest_x.copy())
         mean_fit_history.append(float(np.mean(current_fit)))
+        swarm_history.append(x.copy())
 
     return {
         "best_x": gbest_x,
@@ -75,4 +77,5 @@ def run_pso(cfg: PSOConfig, random_generator: np.random.Generator):
         "best_fit_history": np.asarray(best_fit_history),
         "mean_fit_history": np.asarray(mean_fit_history),
         "best_x_history": np.asarray(best_x_history),
+        "swarm_history": np.asarray(swarm_history),
     }

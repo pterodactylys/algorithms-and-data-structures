@@ -58,6 +58,7 @@ def run_ga(cfg: GAConfig, random_generator: np.random.Generator) -> dict:
     best_fit_history = []
     mean_fit_history = []
     best_x_history = []
+    population_history = [pop.copy()]
 
     for _ in range(cfg.generations):
         fit = objective(pop)
@@ -95,6 +96,7 @@ def run_ga(cfg: GAConfig, random_generator: np.random.Generator) -> dict:
                 new_pop.append(c2)
 
         pop = np.array(new_pop, dtype=float)
+        population_history.append(pop.copy())
 
     final_fit = objective(pop)
     best_idx = np.argmin(final_fit)
@@ -105,4 +107,5 @@ def run_ga(cfg: GAConfig, random_generator: np.random.Generator) -> dict:
         "best_fit_history": np.array(best_fit_history),
         "mean_fit_history": np.array(mean_fit_history),
         "best_x_history": np.array(best_x_history),
+        "population_history": np.array(population_history),
     }

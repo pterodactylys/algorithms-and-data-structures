@@ -1,6 +1,6 @@
 from ga import GAConfig, objective, run_ga
 from pso import PSOConfig, run_pso
-from visualisation import plot_ga_pso_convergence
+from visualisation import animate_particles_movement, plot_ga_pso_convergence
 
 import numpy as np
 
@@ -53,6 +53,7 @@ def main():
     print("accuracy: ", abs(pso_res["best_fit"] - f_reference))
 
     plot_ga_pso_convergence(ga_res, pso_res)
+    animate_particles_movement(ga_res, pso_res, x_min=cfg.x_min, x_max=cfg.x_max, max_particles=120, interval_ms=70)
 
 if __name__ == "__main__":
     main()
