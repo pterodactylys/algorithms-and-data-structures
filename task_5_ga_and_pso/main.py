@@ -1,3 +1,5 @@
+import argparse
+
 from ga import GAConfig, objective, run_ga
 from pso import PSOConfig, run_pso
 from visualisation import animate_particles_movement, plot_ga_pso_convergence
@@ -5,7 +7,7 @@ from visualisation import animate_particles_movement, plot_ga_pso_convergence
 import numpy as np
 
 
-def main():
+def run_cli():
     seed = 50
     cfg = GAConfig(
         n_dim=2,
@@ -54,6 +56,26 @@ def main():
 
     plot_ga_pso_convergence(ga_res, pso_res)
     animate_particles_movement(ga_res, pso_res, x_min=cfg.x_min, x_max=cfg.x_max, max_particles=120, interval_ms=70)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="GA + PSO runner")
+    parser.add_argument("--cli", action="store_true", help="Run in CLI mode (without Qt GUI)")
+    args = parser.parse_args()
+
+    if args.cli:
+        run_cli()
+        return
+
+    try:
+        from gui_qt import launch_gui
+    except Exception as exc:
+        print("Qt GUI is unavailable:", exc)
+        print("Starting CLI mode. Use --cli to force CLI explicitly.")
+        run_cli()
+        return
+
+    launch_gui()
 
 if __name__ == "__main__":
     main()
