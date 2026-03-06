@@ -13,6 +13,8 @@ class Config:
     ga_mutation_probability: float = 0.25
     ga_mutation_sigma: float = 0.25
     ga_crossover_probability: float = 0.8
+    ga_elitism: bool = True
+    ga_elite_count: int = 1
 
 
 def function(x: np.ndarray) -> np.ndarray:
@@ -56,15 +58,19 @@ def run_ga(cfg, random_generator):
         best_idx = np.argmin(fit)
         elite = pop[best_idx].copy()
         elite_fit = fit[best_idx]
-        # print(elite_fit)
 
         best_fit_history.append(elite_fit)
         mean_fit_history.append(np.mean(fit))
         best_x_history.append(elite.copy())
 
         new_pop = []
-        # if elitism:
-        
+        if cfg.ga_elitism:
+            elite_count = int(np.clip(cfg.ga_elite_count, 0, cfg.ga_pop_size))
+            if elite_count > 0:
+                elite_indices = np.argsort(fit)[:elite_count]
+                elites = pop[elite_indices].copy()
+                new_pop.extend(elites)
+
         while len(new_pop) < cfg.ga_pop_size:
             p1 = selection(pop, fit, cfg.ga_tournament_k, random_generator)
             p2 = selection(pop, fit, cfg.ga_tournament_k, random_generator)
