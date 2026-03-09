@@ -4,6 +4,9 @@ lib/
 libs/
 __pycache__/
 
+**/.DS_Store
+
+
 *.exe
 *.ii
 *.s
