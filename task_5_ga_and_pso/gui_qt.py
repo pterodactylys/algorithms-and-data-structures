@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import numpy as np
 
-from ga import GAConfig, objective, run_ga
+from ga import GAConfig, objective, run_ga, run_ga_gray
 from pso import PSOConfig, run_pso
 from visualisation import animate_particles_movement, plot_ga_pso_convergence
 
@@ -136,6 +136,13 @@ def launch_gui() -> None:
             box = QGroupBox("Genetic Algorithm (GA)")
             form = QFormLayout(box)
 
+            self.ga_use_gray = QCheckBox()
+            self.ga_use_gray.setChecked(False)
+
+            self.ga_gray_bits_per_dim = QSpinBox()
+            self.ga_gray_bits_per_dim.setRange(1, 60)
+            self.ga_gray_bits_per_dim.setValue(52)
+
             self.ga_pop_size = QSpinBox()
             self.ga_pop_size.setRange(2, 200_000)
             self.ga_pop_size.setValue(1000)
@@ -170,6 +177,8 @@ def launch_gui() -> None:
             self.ga_elite_count.setRange(0, 10_000)
             self.ga_elite_count.setValue(1)
 
+            form.addRow("use_gray_encoding", self.ga_use_gray)
+            form.addRow("gray_bits_per_dim", self.ga_gray_bits_per_dim)
             form.addRow("pop_size", self.ga_pop_size)
             form.addRow("generations", self.ga_generations)
             form.addRow("tournament_k", self.ga_tournament_k)
@@ -281,6 +290,7 @@ def launch_gui() -> None:
                 crossover_probability=float(self.ga_crossover_probability.value()),
                 elitism=bool(self.ga_elitism.isChecked()),
                 elite_count=int(self.ga_elite_count.value()),
+                gray_bits_per_dim=int(self.ga_gray_bits_per_dim.value()),
             )
 
             pso_cfg = PSOConfig(
@@ -307,6 +317,9 @@ def launch_gui() -> None:
                 ga_times = []
                 pso_times = []
 
+                ga_runner = run_ga_gray if self.ga_use_gray.isChecked() else run_ga
+                ga_mode = "Gray code" if self.ga_use_gray.isChecked() else "Real-coded"
+
                 ga_res = None
                 pso_res = None
 
@@ -315,7 +328,7 @@ def launch_gui() -> None:
                     rng = np.random.default_rng(run_seed)
 
                     ga_t0 = time.perf_counter()
-                    ga_res = run_ga(ga_cfg, rng)
+                    ga_res = ga_runner(ga_cfg, rng)
                     ga_time_s = time.perf_counter() - ga_t0
 
                     pso_t0 = time.perf_counter()
@@ -340,6 +353,7 @@ def launch_gui() -> None:
 
                 text = []
                 text.append(f"Runs: {runs_count} | seed_start={seed} | seed_step={seed_step}")
+                text.append(f"GA mode: {ga_mode}")
                 text.append("")
 
                 text.append("Genetic algorithm:")
